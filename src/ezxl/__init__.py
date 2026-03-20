@@ -1,0 +1,52 @@
+# ///////////////////////////////////////////////////////////////
+# EzXl - Main Module
+# Project: EzXl
+# ///////////////////////////////////////////////////////////////
+
+"""EzXl - A short description of the project."""
+
+from __future__ import annotations
+
+# ///////////////////////////////////////////////////////////////
+# IMPORTS
+# ///////////////////////////////////////////////////////////////
+# Standard library imports
+import sys
+
+# Local imports
+from .version import __version__
+
+# ///////////////////////////////////////////////////////////////
+# METADATA INFORMATION
+# ///////////////////////////////////////////////////////////////
+
+__author__ = "Neuraaak"
+__maintainer__ = "Neuraaak"
+__description__ = "EzXl - Project compilation and distribution framework for Python"
+__python_requires__ = ">=3.11"
+__keywords__ = [
+    "compilation",
+    "packaging",
+    "distribution",
+    "cx_freeze",
+    "pyinstaller",
+    "nuitka",
+]
+__url__ = "https://github.com/neuraaak/EzXl"
+__repository__ = "https://github.com/neuraaak/EzXl"
+
+# ///////////////////////////////////////////////////////////////
+# PYTHON VERSION CHECK
+# ///////////////////////////////////////////////////////////////
+
+if sys.version_info < (3, 11):  # noqa: UP036
+    raise RuntimeError(
+        f"EzXl {__version__} requires Python 3.11 or higher. "
+        f"Current version: {sys.version}"
+    )
+
+# ///////////////////////////////////////////////////////////////
+# PUBLIC API
+# ///////////////////////////////////////////////////////////////
+
+__all__ = []

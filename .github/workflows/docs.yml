@@ -1,0 +1,80 @@
+name: Deploy Documentation
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        type: string
+      tag:
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  PACKAGE_NAME: ezxl
+  PYTHON_VERSION: "3.11"
+  # Dépendances système supplémentaires nécessaires avant l'installation du package
+  # Laisser vide si aucune dépendance système n'est requise
+  EXTRA_SYSTEM_DEPS: ""
+
+jobs:
+  deploy:
+    name: Build and Deploy Docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install extra system dependencies
+        if: env.EXTRA_SYSTEM_DEPS != ''
+        run: |
+          echo "📦 Installing extra system dependencies..."
+          pip install ${{ env.EXTRA_SYSTEM_DEPS }} --no-cache-dir
+
+      - name: Install package with docs and test dependencies
+        run: |
+          echo "📦 Installing package with docs and test dependencies..."
+          python -m pip install --upgrade pip
+          pip install -e ".[docs,test]"
+
+      - name: Generate coverage report
+        run: |
+          echo "🧪 Running tests and generating coverage report..."
+          pytest --cov=ezxl --cov-report=html --cov-report=xml -q || true
+          echo "✅ Coverage report generated!"
+
+      - name: Enforce import contracts
+        run: |
+          echo "🧭 Enforcing import contracts with import-linter..."
+          lint-imports
+
+      - name: Generate architecture graph
+        run: |
+          echo "🏗️ Generating architecture dependency graph..."
+          python .scripts/dev/generate_architecture_graph.py
+          echo "✅ Architecture graph generated!"
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output docs/changelog.md
+
+      - name: Build and deploy documentation
+        run: |
+          echo "📚 Building and deploying documentation for ${{ env.PACKAGE_NAME }}..."
+          mkdocs gh-deploy --force
+          echo "✅ Documentation deployed successfully!"

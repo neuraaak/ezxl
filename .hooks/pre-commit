@@ -1,0 +1,100 @@
+#!/bin/bash
+# Pre-commit hook for automatic code formatting
+# Automatically formats code before allowing commits (Ruff)
+
+# Get project root (parent of .hooks directory)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+# Prefer project venv if present
+PYTHON_BIN=""
+if [ -x "$PROJECT_ROOT/.venv/Scripts/python.exe" ]; then
+    PYTHON_BIN="$PROJECT_ROOT/.venv/Scripts/python.exe"
+elif [ -x "$PROJECT_ROOT/.venv/bin/python" ]; then
+    PYTHON_BIN="$PROJECT_ROOT/.venv/bin/python"
+else
+    PYTHON_BIN="python"
+fi
+
+echo "🔍 Running pre-commit formatting..."
+
+# Check if Python is available
+if ! command -v "$PYTHON_BIN" &>/dev/null; then
+    echo "❌ Error: Python not found (venv or PATH)"
+    exit 1
+fi
+
+# Track overall success
+overall_success=true
+
+# Use the lint.py script for formatting (fixes issues automatically)
+if [ -f ".scripts/dev/lint.py" ]; then
+    echo "🔧 Running code quality checks and fixes..."
+    if "$PYTHON_BIN" .scripts/dev/lint.py; then
+        echo "✅ Code formatting completed"
+    else
+        echo "❌ Code formatting failed"
+        overall_success=false
+    fi
+else
+    echo "⚠️  Warning: .scripts/dev/lint.py not found, using fallback tools..."
+
+    # Fallback to direct Ruff calls if lint.py is not available
+    overall_success=true
+
+    if command -v ruff &>/dev/null; then
+        echo "🎨 Running Ruff format..."
+        if ruff format .; then
+            echo "✅ Ruff format completed"
+        else
+            echo "❌ Ruff format failed"
+            overall_success=false
+        fi
+
+        echo "🔍 Running Ruff check..."
+        if ruff check --fix .; then
+            echo "✅ Ruff check completed"
+        else
+            echo "❌ Ruff check failed"
+            overall_success=false
+        fi
+    else
+        echo "❌ Error: Ruff not found"
+        overall_success=false
+    fi
+fi
+
+# Update README version badge from your project's __init__.py before staging
+if [ -f ".scripts/dev/update_version.py" ]; then
+    echo "🔄 Updating README version badge..."
+    if "$PYTHON_BIN" .scripts/dev/update_version.py; then
+        echo "✅ README badge updated"
+    else
+        echo "⚠️  Warning: Failed to update README badge (non-blocking)"
+    fi
+fi
+
+# Add all reformatted files (and updated README) to staging area
+if [ "$overall_success" = true ]; then
+    echo "📝 Adding reformatted files to staging area..."
+    if git add -u; then
+        echo "✅ Files added to staging area"
+    else
+        echo "❌ Failed to add files to staging area"
+        overall_success=false
+    fi
+fi
+
+# Final result
+if [ "$overall_success" = true ]; then
+    echo "✅ Pre-commit formatting completed!"
+    echo "💡 Code has been automatically formatted and staged for commit."
+    exit 0
+else
+    echo "❌ Pre-commit formatting failed!"
+    echo ""
+    echo "💡 Please fix the issues above and try again."
+    echo "💡 You can run formatting manually:"
+    echo "   python .scripts/dev/lint.py"
+    exit 1
+fi

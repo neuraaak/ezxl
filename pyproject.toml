@@ -1,0 +1,315 @@
+# /////////////////////////////////////////////////////////////////////
+# 🔨 BUILD SYSTEM
+# Defines the build backend and requirements
+# /////////////////////////////////////////////////////////////////////
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+# /////////////////////////////////////////////////////////////////////
+# 📦 PROJECT METADATA
+# Package information, version, authors, and classifiers
+# /////////////////////////////////////////////////////////////////////
+
+[project]
+name = "ezxl"
+version = "0.1.0"
+description = "A short description of ezxl"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "Neuraaak" }]
+maintainers = [{ name = "Neuraaak" }]
+keywords = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
+]
+
+# /////////////////////////////////////////////////////////////////////
+# 📚 DEPENDENCIES
+# Core production dependencies for runtime
+# /////////////////////////////////////////////////////////////////////
+
+dependencies = []
+
+# /////////////////////////////////////////////////////////////////////
+# 🛠️ OPTIONAL DEPENDENCIES
+# Development tools, testing, and build dependencies
+# /////////////////////////////////////////////////////////////////////
+
+[project.optional-dependencies]
+dev = [
+    # Development tools
+    "ruff>=0.1.0",
+    "ty>=0.0.13",
+    "pyright>=1.1.0",
+    "pre-commit>=3.0.0",
+    "import-linter>=2.0.0",
+
+    # Security
+    "bandit>=1.7.0",
+
+    # Tests
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.0.0",
+
+    # Build and distribution
+    "build>=1.0.0",
+    "twine>=4.0.0",
+
+    # CLI / terminal output
+    "rich>=13.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.0.0",
+    "import-linter>=2.0.0",
+]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.27.0",
+    "mkdocs-section-index>=0.3.0",
+    "mkdocs-coverage>=1.1.0",
+    "git-cliff>=2.7.0",
+]
+
+# /////////////////////////////////////////////////////////////////////
+# 🔗 PROJECT URLS
+# Links to repository, documentation, and package index
+# /////////////////////////////////////////////////////////////////////
+
+[project.urls]
+Homepage = "https://github.com/neuraaak/ezxl"
+Documentation = "https://neuraaak.github.io/ezxl/"
+Repository = "https://github.com/neuraaak/ezxl"
+Issues = "https://github.com/neuraaak/ezxl/issues"
+PyPI = "https://pypi.org/project/ezxl/"
+
+# /////////////////////////////////////////////////////////////////////
+# 🖥️ SCRIPTS
+# Entry points for command-line tools
+# ///////////////////////////////////////////////////////////////
+
+[project.scripts]
+
+# ///////////////////////////////////////////////////////////////
+# 📦 SETUPTOOLS CONFIGURATION
+# Package discovery and inclusion/exclusion patterns
+# /////////////////////////////////////////////////////////////////////
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ezxl*"]
+exclude = [
+    "tests*",
+    "build*",
+    "dist*",
+    "*.egg-info*",
+    ".pytest_cache*",
+    ".mypy_cache*",
+    ".ruff_cache*",
+    ".cursor*",
+    ".benchmarks*",
+    "coverage*",
+    "htmlcov*",
+    ".venv*",
+    "venv*",
+    "__pycache__*",
+    "**/__pycache__*",
+    ".git*",
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    ".coverage",
+    "*.log",
+    ".DS_Store",
+    "Thumbs.db",
+    "docs*",
+    "examples*",
+    "_temp*",
+    ".hooks*",
+]
+
+[tool.setuptools.package-data]
+"ezxl" = ["py.typed"]
+
+# /////////////////////////////////////////////////////////////////////
+# 🎨 CODE FORMATTING & LINTING TOOLS
+# Auto-formatting, import sorting, and style checking
+# /////////////////////////////////////////////////////////////////////
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort-compatible import sorting (via ruff)
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "S",   # bandit security
+    "T20", # flake8-print
+    "ARG", # flake8-unused-arguments
+    "PIE", # flake8-pie
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long, handled by ruff format
+    "B008", # do not perform function calls in argument defaults
+    "S101", # assert_used (for tests)
+    "S106", # hardcoded_password_funcarg
+    "T201", # print statements (for init.py and scripts)
+    "S603", # subprocess.run without check=True
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "S311", "E501", "ARG002"]
+"examples/**/*" = ["T201", "E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# /////////////////////////////////////////////////////////////////////
+# ✅ TYPE CHECKING TOOLS
+# Static type analysis with minimal and comprehensive modes
+# /////////////////////////////////////////////////////////////////////
+
+# ty: Type checking with minimal configuration
+[tool.ty.environment]
+python-version = "3.11"
+root = ["src", "src/ezxl"]
+
+[tool.ty.src]
+include = ["src/ezxl/**/*.py"]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "tests",
+    "docs",
+    "examples",
+]
+
+# Respect .gitignore
+respect-ignore-files = true
+
+[tool.ty.terminal]
+output-format = "full"
+error-on-warning = false
+
+# Pyright: Comprehensive type checking with detailed reporting
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+
+# Include/exclude paths
+include = ["src/ezxl"]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "tests",
+    "docs",
+    "examples",
+    "**/node_modules",
+    "**/.*",
+]
+
+# Reporting rules: flag missing imports and duplicates
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedClass = true
+reportUnusedFunction = true
+reportUnusedVariable = true
+reportDuplicateImport = true
+
+# Optional type checking (None safety)
+reportOptionalSubscript = true
+reportOptionalMemberAccess = true
+reportOptionalCall = true
+reportOptionalIterable = true
+reportOptionalContextManager = true
+reportOptionalOperand = true
+
+# Tolerance for decorators and complex types
+reportUntypedFunctionDecorator = false
+reportUntypedClassDecorator = false
+reportUntypedBaseClass = false
+reportUntypedNamedTuple = false
+
+# Override and consistency checks
+reportPrivateUsage = false
+reportConstantRedefinition = true
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportInconsistentConstructor = true
+
+# /////////////////////////////////////////////////////////////////////
+# 🧭 IMPORT LINTER CONTRACTS
+# Layer dependency contracts enforced in CI
+# ///////////////////////////////////////////////////////////////
+
+[tool.importlinter]
+root_packages = ["ezxl"]
+# Note: import-linter 2.x ne supporte pas source_paths (feature pending PR #323).
+# Le package doit être installé en mode editable (pip install -e .)
+# ou lancer avec PYTHONPATH=src lint-imports
+
+[[tool.importlinter.contracts]]
+name = "layer dependency flow"
+type = "layers"
+layers = []
+
+# ///////////////////////////////////////////////////////////////
+# 🧪 TESTING & COVERAGE TOOLS
+# Test execution, coverage analysis, and test configuration
+# /////////////////////////////////////////////////////////////////////
+
+# Pytest: Test runner with markers and coverage configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["ezxl"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
