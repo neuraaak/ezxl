@@ -1,94 +1,73 @@
-# API Reference
+# API reference
 
-Complete public API for `ezxl`, grouped by functional category. All symbols are importable directly from the top-level `ezxl` package.
+Curated index of the public `ezxl` API exported from the top-level package.
 
-For auto-generated reference pages rendered from docstrings, see [Auto-Generated Reference](reference/index.md).
+## 📦 COM automation
 
----
+| Symbol                                                   | Description                                                     |
+| :------------------------------------------------------- | :-------------------------------------------------------------- |
+| [`ExcelApp`](reference/index.md#ezxl.ExcelApp)           | Entry point for a live Excel COM session.                       |
+| [`WorkbookProxy`](reference/index.md#ezxl.WorkbookProxy) | Workbook-level operations such as open, save, and sheet lookup. |
+| [`SheetProxy`](reference/index.md#ezxl.SheetProxy)       | Worksheet navigation plus cell and range access.                |
+| [`CellProxy`](reference/index.md#ezxl.CellProxy)         | Single-cell read and write access.                              |
+| [`RangeProxy`](reference/index.md#ezxl.RangeProxy)       | Rectangular range access for bulk values.                       |
 
-## COM automation
+## 📦 GUI layer
 
-Core classes for managing an Excel COM session, navigating workbooks, and reading or writing cell data.
+| Symbol                                                                           | Description                                                            |
+| :------------------------------------------------------------------------------- | :--------------------------------------------------------------------- |
+| [`GUIProxy`](reference/index.md#ezxl.GUIProxy)                                   | Unified facade for ribbon, menu, dialog, keys, and Backstage surfaces. |
+| [`RibbonProxy`](reference/index.md#ezxl.RibbonProxy)                             | COM-backed MSO ribbon command execution and state queries.             |
+| [`MenuProxy`](reference/index.md#ezxl.MenuProxy)                                 | COM-backed legacy CommandBar traversal.                                |
+| [`DialogProxy`](reference/index.md#ezxl.DialogProxy)                             | COM-backed file open, file save, and alert dialogs.                    |
+| [`COMBackstageBackend`](reference/index.md#ezxl.COMBackstageBackend)             | COM-backed file operations in Excel Backstage.                         |
+| [`PywinautoKeysBackend`](reference/index.md#ezxl.PywinautoKeysBackend)           | Optional pywinauto keystroke backend.                                  |
+| [`PywinautoBackstageBackend`](reference/index.md#ezxl.PywinautoBackstageBackend) | Optional pywinauto Backstage navigator.                                |
 
-| Symbol                                                   | Description                                                                                   |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [`ExcelApp`](reference/index.md#ezxl.ExcelApp)           | COM session lifecycle manager. Dispatches or attaches to an Excel process. Context manager.   |
-| [`WorkbookProxy`](reference/index.md#ezxl.WorkbookProxy) | Proxy for a single open workbook. Provides `save`, `save_as`, `close`, `sheet`, and `sheets`. |
-| [`SheetProxy`](reference/index.md#ezxl.SheetProxy)       | Proxy for a worksheet. Provides `cell`, `range`, `used_range`, and `calculate`.               |
-| [`CellProxy`](reference/index.md#ezxl.CellProxy)         | Proxy for a single cell. Exposes `value`, `formula`, and `address`.                           |
-| [`RangeProxy`](reference/index.md#ezxl.RangeProxy)       | Proxy for a rectangular cell range. Exposes `values` (read/write) and `address`.              |
+## 📦 GUI contracts
 
----
+| Symbol                                                                             | Description                                       |
+| :--------------------------------------------------------------------------------- | :------------------------------------------------ |
+| [`AbstractRibbonBackend`](reference/index.md#ezxl.AbstractRibbonBackend)           | Contract for ribbon execution and state queries.  |
+| [`AbstractMenuBackend`](reference/index.md#ezxl.AbstractMenuBackend)               | Contract for legacy menu traversal.               |
+| [`AbstractDialogBackend`](reference/index.md#ezxl.AbstractDialogBackend)           | Contract for file-picker and alert dialogs.       |
+| [`AbstractKeysBackend`](reference/index.md#ezxl.AbstractKeysBackend)               | Contract for key injection.                       |
+| [`AbstractBackstageFileOps`](reference/index.md#ezxl.AbstractBackstageFileOps)     | Contract for COM-style Backstage file operations. |
+| [`AbstractBackstageNavigator`](reference/index.md#ezxl.AbstractBackstageNavigator) | Contract for UIA-style Backstage navigation.      |
+| AbstractBackstageBackend                                                           | Compatibility alias kept for existing imports.    |
 
-## GUI interaction
+## 📦 File I/O and formatting
 
-Facade and backend classes for ribbon commands, menus, dialogs, and keystroke injection.
+| Symbol                                                     | Description                                             |
+| :--------------------------------------------------------- | :------------------------------------------------------ |
+| [`read_excel`](reference/index.md#ezxl.read_excel)         | Read a workbook sheet into a polars DataFrame.          |
+| [`read_csv`](reference/index.md#ezxl.read_csv)             | Read a CSV file into a polars DataFrame.                |
+| [`xlsx_to_csv`](reference/index.md#ezxl.xlsx_to_csv)       | Convert a workbook sheet to CSV.                        |
+| [`csv_to_xlsx`](reference/index.md#ezxl.csv_to_xlsx)       | Convert a CSV file to XLSX.                             |
+| [`read_sheet`](reference/index.md#ezxl.read_sheet)         | Read a sheet into a legacy row-major list of lists.     |
+| [`ExcelFormatter`](reference/index.md#ezxl.ExcelFormatter) | Apply formatting to a closed workbook through openpyxl. |
 
-| Symbol                                               | Description                                                                                                             |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| [`GUIProxy`](reference/index.md#ezxl.GUIProxy)       | Unified GUI facade. Bundles ribbon, menu, dialog, and keys backends. Accepts alternative backends at construction time. |
-| [`RibbonProxy`](reference/index.md#ezxl.RibbonProxy) | COM-based ribbon backend. Executes MSO commands and queries their state via `Application.CommandBars`.                  |
-| [`MenuProxy`](reference/index.md#ezxl.MenuProxy)     | COM-based menu backend. Traverses legacy CommandBars by caption path.                                                   |
-| [`DialogProxy`](reference/index.md#ezxl.DialogProxy) | COM-based dialog backend. Provides `get_file_open`, `get_file_save`, and `alert`.                                       |
+## 📦 Exceptions
 
----
+| Symbol                                                                           | Description                                         |
+| :------------------------------------------------------------------------------- | :-------------------------------------------------- |
+| [`EzXlError`](reference/index.md#ezxl.EzXlError)                                 | Base exception for all library-originated failures. |
+| [`ExcelNotAvailableError`](reference/index.md#ezxl.ExcelNotAvailableError)       | Excel could not be dispatched or attached.          |
+| [`ExcelSessionLostError`](reference/index.md#ezxl.ExcelSessionLostError)         | A previously attached COM session was lost.         |
+| [`ExcelThreadViolationError`](reference/index.md#ezxl.ExcelThreadViolationError) | A COM call was made from the wrong thread.          |
+| [`WorkbookNotFoundError`](reference/index.md#ezxl.WorkbookNotFoundError)         | The requested workbook is not open.                 |
+| [`SheetNotFoundError`](reference/index.md#ezxl.SheetNotFoundError)               | The requested sheet does not exist.                 |
+| [`COMOperationError`](reference/index.md#ezxl.COMOperationError)                 | A COM call failed without a more specific mapping.  |
+| [`GUIOperationError`](reference/index.md#ezxl.GUIOperationError)                 | A GUI surface call failed.                          |
+| [`FormatterError`](reference/index.md#ezxl.FormatterError)                       | A closed-file formatting operation failed.          |
 
-## GUI protocols (ABCs)
+## 🔍 Full reference
 
-Abstract base classes that define the contract for each GUI surface. Implement these to create a custom backend.
+For the complete mkdocstrings dump of the public API, see [Full reference](reference/index.md).
 
-| Symbol                                                                   | Description                                              |
-| ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [`AbstractRibbonBackend`](reference/index.md#ezxl.AbstractRibbonBackend) | Contract for ribbon execution and state queries.         |
-| [`AbstractMenuBackend`](reference/index.md#ezxl.AbstractMenuBackend)     | Contract for CommandBar traversal and control execution. |
-| [`AbstractDialogBackend`](reference/index.md#ezxl.AbstractDialogBackend) | Contract for file-open, file-save, and alert dialogs.    |
-| [`AbstractKeysBackend`](reference/index.md#ezxl.AbstractKeysBackend)     | Contract for keystroke injection.                        |
+## 📦 Backend modules
 
----
-
-## GUI backends — pywinauto
-
-Optional backends that operate at the OS UI Automation level instead of via COM. Require `pywinauto` to be installed separately.
-
-| Symbol                                                                     | Description                                                                                                          |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [`PywinautoRibbonBackend`](reference/index.md#ezxl.PywinautoRibbonBackend) | Ribbon execution via keyboard shortcuts sent through pywinauto. Locale-independent. Limited to a curated MSO ID set. |
-| [`PywinautoMenuBackend`](reference/index.md#ezxl.PywinautoMenuBackend)     | Menu traversal via pywinauto UI Automation clicks.                                                                   |
-| [`PywinautoDialogBackend`](reference/index.md#ezxl.PywinautoDialogBackend) | File pickers and alerts via keyboard shortcuts and Win32 `MessageBoxW`.                                              |
-| [`PywinautoKeysBackend`](reference/index.md#ezxl.PywinautoKeysBackend)     | Keystroke injection via `pywinauto.keyboard.send_keys`.                                                              |
-
-!!! note "pywinauto state queries not supported"
-`PywinautoRibbonBackend` raises `NotImplementedError` for `is_enabled`, `is_pressed`, and `is_visible`. pywinauto has no equivalent to `Application.CommandBars.GetEnabledMso`. Use `RibbonProxy` (COM backend) when state queries are required.
-
----
-
-## File I/O
-
-Functions for reading and converting files without a running Excel process. All functions use polars backed by `fastexcel` (Rust) for Excel I/O.
-
-| Symbol                                                     | Description                                                                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [`read_excel`](reference/index.md#ezxl.read_excel)         | Read an `.xlsx` / `.xlsm` sheet into a polars DataFrame.                                                           |
-| [`read_csv`](reference/index.md#ezxl.read_csv)             | Read a `.csv` file into a polars DataFrame.                                                                        |
-| [`xlsx_to_csv`](reference/index.md#ezxl.xlsx_to_csv)       | Convert an Excel sheet to a CSV file.                                                                              |
-| [`csv_to_xlsx`](reference/index.md#ezxl.csv_to_xlsx)       | Convert a CSV file to an `.xlsx` workbook.                                                                         |
-| [`read_sheet`](reference/index.md#ezxl.read_sheet)         | Read a sheet as a row-major `list[list[Any]]`. Compatibility shim for pre-polars callers.                          |
-| [`ExcelFormatter`](reference/index.md#ezxl.ExcelFormatter) | Fluent closed-file formatter via openpyxl. Buffers operations and applies them in a single write pass on `save()`. |
-
----
-
-## Exceptions
-
-All exceptions inherit from `EzXlError`. Catching `EzXlError` handles any library-originated failure. Catch specific subclasses for fine-grained error handling.
-
-| Symbol                                                                           | When raised                                                                            |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [`EzXlError`](reference/index.md#ezxl.EzXlError)                                 | Base class for all EzXl exceptions.                                                    |
-| [`ExcelNotAvailableError`](reference/index.md#ezxl.ExcelNotAvailableError)       | `mode="attach"` and no Excel instance is running, or COM registration is broken.       |
-| [`ExcelSessionLostError`](reference/index.md#ezxl.ExcelSessionLostError)         | An established COM connection was lost mid-operation (Excel crashed or was closed).    |
-| [`ExcelThreadViolationError`](reference/index.md#ezxl.ExcelThreadViolationError) | A COM call was attempted from a thread other than the one that created the `ExcelApp`. |
-| [`WorkbookNotFoundError`](reference/index.md#ezxl.WorkbookNotFoundError)         | A workbook cannot be found by name in the current Excel session.                       |
-| [`SheetNotFoundError`](reference/index.md#ezxl.SheetNotFoundError)               | A worksheet cannot be found by name in a workbook.                                     |
-| [`COMOperationError`](reference/index.md#ezxl.COMOperationError)                 | An unclassified COM error that does not map to a more specific subclass.               |
-| [`GUIOperationError`](reference/index.md#ezxl.GUIOperationError)                 | A COM error occurring within a GUI surface (ribbon, CommandBars, dialog).              |
-| [`FormatterError`](reference/index.md#ezxl.FormatterError)                       | An openpyxl-based formatting operation failed.                                         |
+| Module page                                           | Description                                                                                                       |
+| :---------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| [Win32com backends](reference/win32com-backends.md)   | Module-level reference for COM GUI backends (`RibbonProxy`, `MenuProxy`, `DialogProxy`, `COMBackstageBackend`).   |
+| [Pywinauto backends](reference/pywinauto-backends.md) | Module-level reference for optional UI Automation backends (`PywinautoKeysBackend`, `PywinautoBackstageBackend`). |

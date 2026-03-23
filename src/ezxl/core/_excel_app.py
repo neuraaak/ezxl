@@ -27,6 +27,7 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
+import importlib
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -40,7 +41,6 @@ from ..exceptions import ExcelNotAvailableError
 from ..utils._com_utils import assert_main_thread, wait_until_ready, wrap_com_error
 
 if TYPE_CHECKING:
-    from ..gui._gui_proxy import GUIProxy
     from ._workbook import WorkbookProxy
 
 # ///////////////////////////////////////////////////////////////
@@ -68,10 +68,29 @@ class ExcelApp:
         the instance. Calls from other threads raise
         ``ExcelThreadViolationError`` immediately.
 
-    Context manager:
-        Use ``ExcelApp`` as a context manager to ensure proper cleanup.
-        In ``dispatch`` mode the Excel process is quit on exit. In
-        ``attach`` mode the process is left running.
+    Lifecycle
+    ---------
+    Two usage patterns are supported:
+
+    **Context manager** (recommended for short, bounded sessions) — cleanup
+    is automatic on exit::
+
+        with ExcelApp(mode="dispatch", visible=False) as xl:
+            wb = xl.open("C:/reports/budget.xlsx")
+            wb.save()
+        # Excel quit automatically
+
+    **Manual lifecycle** (long-running sessions, e.g. consumer libraries) —
+    call :meth:`quit` explicitly when done.  In ``attach`` mode, ``quit``
+    is optional; Excel stays running and the Python reference is released::
+
+        xl = ExcelApp(mode="attach")
+        wb = xl.open("C:/reports/budget.xlsx")
+        # ... many operations spread across multiple calls ...
+        xl.quit()   # optional in attach mode — Excel stays running
+
+    The COM object is resolved **lazily** on the first public method call;
+    constructing an ``ExcelApp`` instance does not connect to COM.
 
     Args:
         mode: ``"dispatch"`` to start a new Excel instance, or
@@ -82,11 +101,6 @@ class ExcelApp:
     Raises:
         ExcelNotAvailableError: If ``mode="attach"`` and no Excel instance
             is currently running.
-
-    Example:
-        >>> with ExcelApp(mode="dispatch", visible=False) as xl:
-        ...     wb = xl.open("C:/reports/budget.xlsx")
-        ...     wb.save()
     """
 
     # ///////////////////////////////////////////////////////////////
@@ -334,7 +348,7 @@ class ExcelApp:
         wait_until_ready(self._get_app(), timeout)
 
     @property
-    def gui(self) -> GUIProxy:
+    def gui(self) -> Any:
         """Access GUI interaction helpers (ribbon, menus, dialogs, keys).
 
         Returns a ``GUIProxy`` that bundles all GUI automation surfaces.
@@ -359,10 +373,10 @@ class ExcelApp:
             ...     xl.gui.ribbon.execute("FileSave")
             ...     path = xl.gui.dialog.get_file_open()
         """
-        from ..gui._gui_proxy import GUIProxy  # local import avoids circular dep
-
         self._check_thread()
-        return GUIProxy(self)
+        module = importlib.import_module("ezxl.gui._gui_proxy")
+        gui_proxy_cls = module.GUIProxy
+        return gui_proxy_cls(self)
 
     @property
     @wrap_com_error
@@ -383,7 +397,7 @@ class ExcelApp:
 
         Example:
             >>> hwnd = xl.hwnd
-            >>> gui = GUIProxy(xl, ribbon=PywinautoRibbonBackend(hwnd=hwnd))
+            >>> gui = GUIProxy(xl, keys=PywinautoKeysBackend(hwnd=hwnd))
         """
         self._check_thread()
         return int(self._get_app().Hwnd)

@@ -26,7 +26,7 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 # Third-party imports
 from ezplog.lib_mode import get_logger
@@ -34,10 +34,7 @@ from ezplog.lib_mode import get_logger
 # Local imports
 from ...exceptions import GUIOperationError
 from ...utils._com_utils import assert_main_thread, wrap_com_error
-from .._protocols import AbstractMenuBackend
-
-if TYPE_CHECKING:
-    from ...core._excel_app import ExcelApp
+from .._protocols import AbstractMenuBackend, ExcelAppLike
 
 # ///////////////////////////////////////////////////////////////
 # CONSTANTS
@@ -71,7 +68,7 @@ class MenuProxy(AbstractMenuBackend):
     # INIT
     # ///////////////////////////////////////////////////////////////
 
-    def __init__(self, app: ExcelApp) -> None:
+    def __init__(self, app: ExcelAppLike) -> None:
         self._app = app
 
     # ///////////////////////////////////////////////////////////////

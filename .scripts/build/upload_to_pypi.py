@@ -28,7 +28,7 @@ from rich.text import Text
 # VARIABLES
 # ///////////////////////////////////////////////////////////////
 
-project_name = "ezxl"
+project_name = "EzXl"
 
 # ///////////////////////////////////////////////////////////////
 # GLOBAL CONSOLE
@@ -118,7 +118,7 @@ def upload_to_test_pypi() -> bool:
     dist_files = list(dist_path.glob("*"))
 
     commands = [
-        [sys.executable, "-m", "twine", "upload", "--repository", "testpypi"]
+        ["uv", "run", "twine", "upload", "--repository", "testpypi"]
         + [str(f) for f in dist_files],
     ]
 
@@ -140,7 +140,7 @@ def upload_to_test_pypi() -> bool:
     )
     console.print(
         "[cyan]📦[/cyan] Package available at: "
-        f"[link]https://test.pypi.org/project/{project_name}/[/link]"
+        f"[link]https://test.pypi.org/project/{project_name.lower().replace('-', '_')}/[/link]"
     )
     return True
 
@@ -184,7 +184,7 @@ def upload_to_pypi() -> bool:
     dist_files = list(dist_path.glob("*"))
 
     commands = [
-        [sys.executable, "-m", "twine", "upload"] + [str(f) for f in dist_files],
+        ["uv", "run", "twine", "upload"] + [str(f) for f in dist_files],
     ]
 
     for command in commands:
@@ -205,7 +205,7 @@ def upload_to_pypi() -> bool:
     )
     console.print(
         "[cyan]📦[/cyan] Package available at: "
-        f"[link]https://pypi.org/project/{project_name}/[/link]"
+        f"[link]https://pypi.org/project/{project_name.lower().replace('-', '_')}/[/link]"
     )
     return True
 

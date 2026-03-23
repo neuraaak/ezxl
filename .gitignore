@@ -82,6 +82,7 @@ node_modules/
 bandit-report.json
 bandit-report.xml
 bandit-report.html
+bandit_report.html
 
 # Rapports de couverture de code (pytest-cov, coverage)
 .coverage
@@ -97,6 +98,7 @@ mypy-report.txt
 
 # Rapports de tests
 test-results/
+.pytest_cache/
 junit.xml
 test-report.xml
 nosetests.xml
@@ -155,6 +157,12 @@ version_info.txt
 # =============================================================================
 # IDE ET ÉDITEURS (COMMUNS)
 # =============================================================================
+# Cursor
+.cursorignore
+.cursor/
+.cursor/rules/
+.cursor_cache/
+
 # Visual Studio Code
 .vscode/
 .vscode-server/
@@ -176,22 +184,15 @@ version_info.txt
 # =============================================================================
 # AI AGENT
 # =============================================================================
-# GitHub Copilot
-.github/copilot/
-.copilot/
-.github/copilot-instructions.md
-.github/instructions/*.instructions.md
-AGENTS.md
-CLAUDE.md
-GEMINI.md
+# Cursor
+.cursor/
+.cursorrules
+.cursor/rules/
+.cursor/*.mdc
+cursor.json
 
 # Claude (Anthropic)
-.clinerules
 .claude/
-CLAUDE.md
-
-# Cline (VS Code extension)
-.cline/
 
 # =============================================================================
 # FICHIERS SYSTÈME (COMMUNS)
@@ -231,6 +232,9 @@ _temp/
 temp/
 tmp/
 tmpclaude-*
+
+# MkDocs build output
+site/
 
 # =============================================================================
 # EXCLUSIONS SPÉCIFIQUES AU PROJET RACINE

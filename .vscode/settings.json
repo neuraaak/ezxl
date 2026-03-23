@@ -1,0 +1,14 @@
+{
+  // ///////////////////////////////////////////////////////////////
+  // YAML (Red Hat) — custom tags
+  // Full URI format required — shorthand !!python/name does not work.
+  // Suppresses "Unresolved tag" warnings for Python object tags
+  // used in mkdocs.yml.
+  // ///////////////////////////////////////////////////////////////
+  "yaml.customTags": [
+    "tag:yaml.org,2002:python/name:pymdownx.superfences.fence_code_format",
+    "tag:yaml.org,2002:python/name:material.extensions.emoji.twemoji",
+    "tag:yaml.org,2002:python/name:material.extensions.emoji.to_svg",
+    "tag:yaml.org,2002:python/object/apply:pymdownx.slugs.slugify mapping"
+  ]
+}
