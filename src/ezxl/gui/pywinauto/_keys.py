@@ -42,20 +42,7 @@ import time
 
 # Local imports
 from .._protocols import AbstractKeysBackend
-
-# ///////////////////////////////////////////////////////////////
-# OPTIONAL DEPENDENCY GUARD
-# ///////////////////////////////////////////////////////////////
-
-try:
-    from pywinauto.keyboard import (  # type: ignore[import-untyped]
-        send_keys as _pw_send_keys,
-    )
-except ImportError as _pwn_import_error:
-    raise ImportError(
-        "pywinauto is required for the pywinauto GUI backends but is not installed. "
-        "Install it with: pip install pywinauto"
-    ) from _pwn_import_error
+from ._imports import _pw_send_keys
 
 # ///////////////////////////////////////////////////////////////
 # CONSTANTS

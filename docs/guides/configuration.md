@@ -1,170 +1,79 @@
-# Configuration
+# How to install ezxl
 
-This guide covers environment setup for both standard and corporate (offline) environments.
+Use this guide to install EzXl in a local Windows environment, an offline corporate environment, or a documentation workspace.
 
----
+## 🔧 Prerequisites
 
-## Python version
+- Python 3.11 or later
+- Windows if you plan to use COM automation
+- Excel installed if you plan to automate a live session
 
-`ezxl` requires Python 3.11 or later. This is enforced at import time: attempting to import the library on an older interpreter raises `RuntimeError` immediately.
+## 📝 Steps
 
-```bash
-python --version
-# Python 3.11.x or later required
-```
+1. Verify interpreter bitness before any COM usage.
 
----
+   ```bash
+   python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
+   ```
 
-## Bitness verification
+2. Create and activate a virtual environment.
 
-Excel COM dispatch requires that the Python interpreter bitness matches the installed Excel bitness. Microsoft 365 defaults to 64-bit. Mixing bitnesses causes `pythoncom` registration errors that are difficult to diagnose without this check.
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
 
-```bash
-python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
-# Expected on a standard workstation: 64 bit
-```
+3. Pick the installation flow that matches your environment.
 
-If the output does not match your Excel installation, use the matching Python installer from [python.org](https://www.python.org/downloads/windows/).
+    === "Runtime package"
 
----
+        ```bash
+        pip install ezxl
+        ```
 
-## Virtual environment
+    === "Contributor workspace"
 
-Create and activate a virtual environment before installing any dependencies:
+        ```bash
+        uv sync --extra dev --extra test --extra docs
+        ```
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-```
+    === "Offline wheels"
 
----
+        ```bash
+        pip install --no-index --find-links C:\wheels ezxl
+        ```
 
-## Standard installation
+4. Register the pywin32 COM components for the virtual environment.
 
-```bash
-pip install -e ".[dev]"
-```
+   ```bash
+   python .venv/Scripts/pywin32_postinstall.py -install
+   ```
 
-This installs `ezxl` in editable mode with all development dependencies from `pyproject.toml`.
+5. Verify that the package imports cleanly.
 
----
+   ```bash
+   python -c "import ezxl; print(ezxl.__version__)"
+   ```
 
-## Corporate offline installation
+## Variations
 
-In environments with no PyPI access, all packages must be available as `.whl` files in a local directory. Build or obtain the wheels on a machine with internet access, then transfer them to the target environment.
-
-```bash
-# On a machine with internet access, download all wheels
-pip download ezxl[dev] -d C:\wheels
-
-# On the target machine (no internet), install from local wheels
-pip install --no-index --find-links C:\wheels -e ".[dev]"
-```
-
-If the corporate proxy must be used for some network operations:
+If you need a corporate proxy for download operations:
 
 ```bash
 set HTTPS_PROXY=http://proxy.corp.example.com:8080
-pip install --proxy http://proxy.corp.example.com:8080 -e ".[dev]"
+pip install --proxy http://proxy.corp.example.com:8080 ezxl
 ```
 
-!!! tip "Proxy in pip.ini"
-To avoid setting the proxy on every command, add it to `%APPDATA%\pip\pip.ini`:
+!!! tip "🔧 Persist the proxy in pip.ini"
+    Add the proxy once in `%APPDATA%\pip\pip.ini` if your environment requires it for every installation.
 
-```ini
-    [global]
-    proxy = http://proxy.corp.example.com:8080
-```
-
----
-
-## pywin32 post-install step
-
-`pywin32` ships COM registration scripts that must be run once after installation. Skipping this step causes `ImportError: No module named 'pywintypes'` or silent COM failures at runtime.
+If you only need to build the documentation locally:
 
 ```bash
-python .venv/Scripts/pywin32_postinstall.py -install
+uv sync --extra docs
+uv run mkdocs serve
 ```
 
-Run this command once per virtual environment. It does not need to be repeated on the same machine unless the virtual environment is recreated.
+## ✅ Result
 
----
-
-## Optional dependencies
-
-### pywinauto
-
-Required only if you intend to use the pywinauto GUI backends (`PywinautoRibbonBackend`, `PywinautoMenuBackend`, `PywinautoDialogBackend`, `PywinautoKeysBackend`). The main COM layer has no dependency on pywinauto.
-
-```bash
-pip install pywinauto
-```
-
-In a corporate offline environment:
-
-```bash
-pip install --no-index --find-links C:\wheels pywinauto
-```
-
-### Documentation dependencies
-
-To build the documentation locally, install the `docs` optional group:
-
-```bash
-pip install -e ".[docs]"
-mkdocs serve
-```
-
-The docs group includes `mkdocs`, `mkdocs-material`, `mkdocstrings[python]`, and related plugins.
-
----
-
-## pyproject.toml optional dependency groups
-
-The full optional dependency configuration in `pyproject.toml`:
-
-```toml
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.1.0",
-    "ty>=0.0.13",
-    "pyright>=1.1.0",
-    "pre-commit>=3.0.0",
-    "import-linter>=2.0.0",
-    "bandit>=1.7.0",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-xdist>=3.0.0",
-    "build>=1.0.0",
-    "twine>=4.0.0",
-    "rich>=13.0.0",
-]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-xdist>=3.0.0",
-    "import-linter>=2.0.0",
-]
-docs = [
-    "mkdocs>=1.6.0",
-    "mkdocs-material>=9.5.0",
-    "mkdocstrings[python]>=0.27.0",
-    "mkdocs-section-index>=0.3.0",
-    "mkdocs-coverage>=1.1.0",
-    "git-cliff>=2.7.0",
-]
-```
-
----
-
-## Git hooks
-
-Pre-commit hooks are stored in `.hooks/`. Register them with git:
-
-```bash
-git config core.hooksPath .hooks
-```
-
-The hooks enforce commit message formatting (Conventional Commits) and run the linter before each commit.
+You have a virtual environment with EzXl installed, the COM registration step completed, and a command you can use to verify the package import immediately.

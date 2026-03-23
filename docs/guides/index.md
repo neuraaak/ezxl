@@ -1,16 +1,11 @@
-# User Guides
+# Guides
 
-This section contains task-oriented guides for contributors and integrators working on or with `ezxl`.
+Task-oriented guides for installing, contributing to, and validating EzXl.
 
----
+## 📚 Available guides
 
-## Guides in this section
-
-[Configuration](configuration.md)
-: Environment setup, bitness verification, pywin32 post-install, optional dependencies, and proxy configuration for corporate environments.
-
-[Development](development.md)
-: Dev workflow: creating the virtual environment, running the linter and type checker, managing pre-commit hooks, writing conventional commits, and bumping the version.
-
-[Testing](testing.md)
-: Testing strategy: unit tests with Protocol-based fakes, integration tests marked `@pytest.mark.excel`, and how COM-dependent tests are excluded from CI.
+| Guide                                         | What it covers                                                            |
+| :-------------------------------------------- | :------------------------------------------------------------------------ |
+| [How to install ezxl](configuration.md)       | Standard, offline, and documentation-oriented installation flows.         |
+| [How to work on ezxl locally](development.md) | Local contributor setup with `uv`, linting, typing, packaging, and hooks. |
+| [How to run tests locally](testing.md)        | Daily pytest commands, coverage generation, and test markers.             |

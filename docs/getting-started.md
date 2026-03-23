@@ -1,160 +1,122 @@
-# Getting Started
+# Getting started
 
-This page gets you from a fresh Python environment to a working Excel automation session in under five minutes.
+This tutorial takes you from a fresh virtual environment to a first successful workbook read.
 
----
+## 🔧 Prerequisites
 
-## Prerequisites
+- Windows with Microsoft Excel installed
+- Python 3.11 or later
+- Matching Python and Excel bitness
 
-| Requirement        | Detail                                                              |
-| ------------------ | ------------------------------------------------------------------- |
-| Operating system   | Windows only — COM is a Windows-exclusive technology                |
-| Python version     | 3.11 or later                                                       |
-| Excel bitness      | Must match Python bitness exactly (both 64-bit or both 32-bit)      |
-| Excel installation | Required for COM features; not required for file I/O and formatting |
+## 📝 Step 1 — Check Python and Excel bitness
 
----
-
-## Verify Python bitness
-
-Before installing, confirm that the Python interpreter you are using matches your Excel installation:
+Run the following command in the interpreter you plan to use:
 
 ```bash
 python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
 ```
 
-The output should match your Excel bitness. Microsoft 365 is 64-bit by default. A bitness mismatch causes COM dispatch to fail with a `pythoncom` registration error that is difficult to diagnose without this check.
+You should see `64 bit` on a standard Microsoft 365 installation. If the bitness does not match Excel, COM automation will fail before EzXl can open a workbook.
 
----
+## 📝 Step 2 — Install EzXl
 
-## Installation
+=== "PyPI"
 
-=== "Standard (PyPI)"
+    === "pip"
 
-```bash
-    pip install ezxl
-```
+        ```bash
+        python -m venv .venv
+        .venv\Scripts\activate
+        pip install ezxl
+        ```
 
-=== "Development mode (from source)"
+    === "uv"
 
-```bash
-    git clone https://github.com/neuraaak/ezxl.git
-    cd ezxl
+        ```bash
+        uv add ezxl
+        ```
+
+=== "From source"
+
+    === "pip"
+
+        ```bash
+        git clone https://github.com/neuraaak/ezxl.git
+        cd ezxl
+        python -m venv .venv
+        .venv\Scripts\activate
+        pip install -e ".[dev]"
+        ```
+
+    === "uv"
+
+        ```bash
+        git clone https://github.com/neuraaak/ezxl.git
+        cd ezxl
+        uv sync --extra dev
+        ```
+
+=== "Offline wheels"
+
+    ```bash
     python -m venv .venv
     .venv\Scripts\activate
-    pip install -e ".[dev]"
-```
-
-=== "Corporate (offline wheels)"
-
-In restricted environments with no PyPI access, install from a local wheel directory. All wheels must be pre-downloaded for `ezxl` and its dependencies (`pywin32`, `polars`, `fastexcel`, `openpyxl`, `xlsxwriter`).
-
-````bash
     pip install --no-index --find-links C:\wheels ezxl
     ```
 
-    If a proxy is required for any network operation:
+After installation, `python -c "import ezxl; print(ezxl.__version__)"` should print a version number.
 
-    ```bash
-    set HTTPS_PROXY=http://proxy.corp.example.com:8080
-    pip install --proxy http://proxy.corp.example.com:8080 ezxl
-````
+## 📝 Step 3 — Run the pywin32 post-install step
 
----
+Run the post-install script once in the virtual environment you just created:
 
-## pywin32 post-install step
-
-After any installation that includes `pywin32`, you must run its post-install script once. This step registers COM components and sets up registry entries that `win32com` depends on at runtime.
-
-```bash
-python .venv/Scripts/pywin32_postinstall.py -install
+```bash { .annotate }
+python .venv/Scripts/pywin32_postinstall.py -install  # (1)!
 ```
 
-!!! warning "Required on every new virtual environment"
-This step is not automatic. Forgetting it results in `ImportError: No module named 'pywintypes'` or silent COM dispatch failures. Run it once per virtual environment, not once per machine.
+1. Run this once per virtual environment, not once per machine.
 
----
+!!! warning "🔧 Required once per virtual environment"
+    If you skip this step, `win32com` imports can succeed while COM dispatch still fails later at runtime.
 
-## Optional: pywinauto backends
-
-The pywinauto GUI backends are an optional extension. Install `pywinauto` separately if you intend to use `PywinautoRibbonBackend`, `PywinautoMenuBackend`, `PywinautoDialogBackend`, or `PywinautoKeysBackend`:
-
-```bash
-pip install pywinauto
-```
-
-The COM layer (`ExcelApp`, `WorkbookProxy`, `GUIProxy` with default backends) has no dependency on `pywinauto`. You can use the full COM automation surface without it.
-
----
-
-## First steps
-
-### 1. Open a workbook
-
-```python
-from ezxl import ExcelApp
-
-with ExcelApp(mode="dispatch", visible=True) as xl:
-    wb = xl.open("C:/data/report.xlsx")
-    print(wb.name)          # "report.xlsx"
-    print(wb.sheets)        # ["Sheet1", "Data", "Summary"]
-```
-
-`ExcelApp` used as a context manager starts Excel on entry and quits it on exit. In `dispatch` mode, a new Excel process is launched. In `attach` mode (shown below), an existing process is reused and left running after the `with` block.
-
-### 2. Read a cell
+## 📝 Step 4 — Open a workbook and read a value
 
 ```python
 from ezxl import ExcelApp
 
 with ExcelApp(mode="dispatch", visible=False) as xl:
-    wb = xl.open("C:/data/report.xlsx")
-    ws = wb.sheet("Summary")
-
-    # Single cell
-    revenue = ws.cell("B5").value
-    print(f"Revenue: {revenue}")
-
-    # Range — returns list[list[Any]]
-    table = ws.range("A1:D10").values
-    headers = table[0]
-    rows = table[1:]
+    workbook = xl.open("C:/data/report.xlsx")
+    summary = workbook.sheet("Summary")
+    revenue = summary.cell("B5").value
+    print(revenue)
 ```
 
-COM date values in cells are automatically converted to `datetime` objects. Excel error cells (`#N/A`, `#VALUE!`, etc.) are returned as `None` with a warning logged.
+You should see the value from cell `B5` printed to the console.
 
-### 3. Write a value and save
+## 📝 Step 5 — Save a change
 
 ```python
 from ezxl import ExcelApp
 
 with ExcelApp(mode="dispatch", visible=False) as xl:
-    wb = xl.open("C:/data/report.xlsx")
-    ws = wb.sheet("Summary")
-
-    ws.cell("B5").value = 42_000
-    wb.save()
-    wb.close(save=False)    # already saved; close without re-saving
+    workbook = xl.open("C:/data/report.xlsx")
+    summary = workbook.sheet("Summary")
+    summary.cell("B6").value = 42_000
+    workbook.save()
 ```
 
-### 4. Attach to a running Excel instance
+You should see the updated value in Excel the next time you open the workbook.
 
-Use `mode="attach"` when Excel is already open and you do not want ezxl to manage the process lifecycle. The Excel window remains open after the `with` block exits.
+## ✅ What you built
 
-```python
-from ezxl import ExcelApp
+You created a working EzXl environment, opened a workbook through COM, read a cell, and saved a change back to disk.
 
-with ExcelApp(mode="attach") as xl:
-    wb = xl.workbook("report.xlsx")     # must already be open
-    ws = wb.sheet("Data")
-    ws.cell("A1").value = "Updated"
-    wb.save()
-    # Excel keeps running after this block
-```
+!!! danger "🔧 Stay on one thread"
+    `ExcelApp` follows Excel's STA threading model. Create and use the same instance on the same thread.
 
----
+## ➡️ Next steps
 
-## Threading note
-
-!!! danger "ExcelApp is not thread-safe"
-Excel COM uses the Single-Threaded Apartment (STA) model. An `ExcelApp` instance records the thread it was created on and raises `ExcelThreadViolationError` immediately if any method is called from a different thread. Always create and use an `ExcelApp` instance on the same thread. Do not share instances across threads.
+- [How to install ezxl](guides/configuration.md)
+- [How to run tests locally](guides/testing.md)
+- [API reference](api/index.md)
+- [Examples](examples/index.md)

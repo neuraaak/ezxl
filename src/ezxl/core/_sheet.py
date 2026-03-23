@@ -23,12 +23,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 # Third-party imports
-import pywintypes
 from ezplog.lib_mode import get_logger
 
 # Local imports
 from ..exceptions import SheetNotFoundError
 from ..utils._com_utils import assert_main_thread, wrap_com_error
+from ..utils._pywintypes_compat import COM_ERROR_TYPE, COM_TIME_TYPE
 
 if TYPE_CHECKING:
     from ._workbook import WorkbookProxy
@@ -39,15 +39,10 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# pywintypes ships without complete type stubs — cache the runtime types via
-# getattr so that type checkers (ty, pyright) don't flag missing attributes.
-_TimeType: type = pywintypes.TimeType  # type: ignore[attr-defined]
-_PywintypesError: type = pywintypes.error  # type: ignore[attr-defined]
-
 
 def _is_com_date(value: Any) -> bool:
     """Return True if ``value`` is a COM pywintypes.datetime instance."""
-    return isinstance(value, _TimeType)
+    return isinstance(value, COM_TIME_TYPE)
 
 
 def _normalise_cell_value(value: Any) -> Any:
@@ -83,7 +78,7 @@ def _normalise_cell_value(value: Any) -> Any:
 
     # Detect COM error values (#N/A, #VALUE!, etc.) — pywintypes wraps
     # these as pywintypes.error instances.
-    if isinstance(value, _PywintypesError):
+    if isinstance(value, COM_ERROR_TYPE):
         logger.warning("Cell contains a COM error value (%r); returning None.", value)
         return None
 
@@ -420,7 +415,8 @@ class RangeProxy:
 
         Example:
             >>> data = ws.range("A1:C3").values
-            >>> data[0][0]  # row 1, col A
+            >>> first_row = next(iter(data))
+            >>> first_value = next(iter(first_row))
         """
         self._sheet._check_thread()
         rng = self._get_range()

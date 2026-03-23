@@ -28,7 +28,6 @@ from __future__ import annotations
 # Standard library imports
 import contextlib
 import ctypes
-from typing import TYPE_CHECKING
 
 # Third-party imports
 from ezplog.lib_mode import get_logger
@@ -36,10 +35,7 @@ from ezplog.lib_mode import get_logger
 # Local imports
 from ...exceptions import GUIOperationError
 from ...utils._com_utils import assert_main_thread, wrap_com_error
-from .._protocols import AbstractDialogBackend
-
-if TYPE_CHECKING:
-    from ...core._excel_app import ExcelApp
+from .._protocols import AbstractDialogBackend, ExcelAppLike
 
 # ///////////////////////////////////////////////////////////////
 # CONSTANTS
@@ -77,7 +73,7 @@ class DialogProxy(AbstractDialogBackend):
     # INIT
     # ///////////////////////////////////////////////////////////////
 
-    def __init__(self, app: ExcelApp) -> None:
+    def __init__(self, app: ExcelAppLike) -> None:
         self._app = app
 
     # ///////////////////////////////////////////////////////////////

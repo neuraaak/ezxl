@@ -171,7 +171,7 @@ def build_layer_edges(package: str, layers: list[str]) -> dict[str, set[str]]:
         import grimp  # noqa: PLC0415
     except ImportError:
         console.print(
-            "[red]❌[/red] grimp is required. Install with: [cyan]pip install grimp[/cyan]"
+            "[red]❌[/red] grimp is required. Install with: [cyan]uv add --dev grimp[/cyan]"
         )
         sys.exit(1)
 

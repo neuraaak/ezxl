@@ -20,10 +20,9 @@ import threading
 import time
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast
 
 # Third-party imports
-import pywintypes
 from ezplog.lib_mode import get_logger
 
 # Local imports
@@ -32,16 +31,13 @@ from ..exceptions import (
     ExcelSessionLostError,
     ExcelThreadViolationError,
 )
+from ._pywintypes_compat import COM_EXCEPTION_TYPE
 
 # ///////////////////////////////////////////////////////////////
 # CONSTANTS
 # ///////////////////////////////////////////////////////////////
 
 logger = get_logger(__name__)
-
-# pywintypes ships without complete type stubs — cache the runtime types via
-# getattr so that type checkers (ty, pyright) don't flag missing attributes.
-_COMError: type = pywintypes.com_error  # type: ignore[attr-defined]
 
 # COM HRESULT codes that indicate a dead/disconnected server.
 # RPC_E_DISCONNECTED (0x80010108) and RPC_E_SERVER_DIED (0x80010007).
@@ -53,7 +49,8 @@ _DISCONNECTED_HRESULTS: frozenset[int] = frozenset(
     ]
 )
 
-_F = TypeVar("_F", bound=Callable[..., Any])
+_FuncP = ParamSpec("_FuncP")
+_FuncR = TypeVar("_FuncR")
 
 # ///////////////////////////////////////////////////////////////
 # FUNCTIONS
@@ -93,7 +90,7 @@ def wait_until_ready(xl_app: Any, timeout: float = 30.0) -> None:
     raise COMOperationError(f"Excel did not become ready within {timeout:.1f} seconds.")
 
 
-def wrap_com_error(func: _F) -> _F:
+def wrap_com_error(func: Callable[_FuncP, _FuncR]) -> Callable[_FuncP, _FuncR]:
     """Decorator that intercepts ``pywintypes.com_error`` and re-raises as EzXl exceptions.
 
     Wraps any COM boundary function so that raw pywin32 errors never escape
@@ -113,12 +110,13 @@ def wrap_com_error(func: _F) -> _F:
     """
 
     @wraps(func)
-    def _wrapper(*args: Any, **kwargs: Any) -> Any:
+    def _wrapper(*args: _FuncP.args, **kwargs: _FuncP.kwargs) -> _FuncR:
         try:
             return func(*args, **kwargs)
         except Exception as exc:
-            if isinstance(exc, _COMError):
-                hresult: int = exc.args[0] if exc.args else 0
+            if isinstance(exc, COM_EXCEPTION_TYPE):
+                first_arg: object = exc.args[0] if exc.args else 0
+                hresult: int = first_arg if isinstance(first_arg, int) else 0
                 if hresult in _DISCONNECTED_HRESULTS:
                     raise ExcelSessionLostError(
                         f"Excel COM session lost (HRESULT 0x{hresult:08X}): {exc}",
@@ -131,7 +129,7 @@ def wrap_com_error(func: _F) -> _F:
             # Re-raise non-COM exceptions untouched.
             raise
 
-    return _wrapper  # type: ignore[return-value]
+    return cast(Callable[_FuncP, _FuncR], _wrapper)
 
 
 def assert_main_thread(thread_id: int) -> None:

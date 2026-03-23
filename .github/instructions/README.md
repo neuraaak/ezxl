@@ -194,5 +194,5 @@ below).
 - **Design audit**: read `.tmp/rapport-audit-initial.md` for the full rationale behind architectural decisions made at project inception.
 - **Module creation order**: `exceptions.py` must be created before any proxy module (`_excel_app.py`, `_workbook.py`, `_sheet.py`). The entire error contract depends on it.
 - **COM errors**: never let `pywintypes.com_error` propagate out of `src/ezxl/`. Always wrap at the COM call site.
-- **`core/hexagonal-architecture-standards.instructions.md`** contains intentional `{{my_project}}` placeholders — these are examples in a shared standards file. Do not replace them.
+- **`core/hexagonal-architecture-standards.instructions.md`** contains intentional `ezxl` placeholders — these are examples in a shared standards file. Do not replace them.
 - **`cliff.toml`** uses Jinja2 `{{ variable }}` syntax — do not confuse with project template placeholders.

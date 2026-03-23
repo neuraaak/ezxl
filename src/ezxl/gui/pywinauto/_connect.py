@@ -6,7 +6,7 @@
 """
 Shared Excel window connection helper for pywinauto backends.
 
-Provides :func:`get_excel_window`, a single entry point used by all four
+Provides :func:`_get_excel_window`, a single entry point used by all four
 pywinauto backend classes to obtain a ``pywinauto`` ``WindowSpecification``
 for the Excel main window.
 
@@ -26,22 +26,10 @@ from __future__ import annotations
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
 import logging
-from typing import Any
 
 # Local imports
 from ...exceptions import GUIOperationError
-
-# ///////////////////////////////////////////////////////////////
-# OPTIONAL DEPENDENCY GUARD
-# ///////////////////////////////////////////////////////////////
-
-try:
-    from pywinauto.application import Application  # type: ignore[import-untyped]
-except ImportError as _pwn_import_error:
-    raise ImportError(
-        "pywinauto is required for the pywinauto GUI backends but is not installed. "
-        "Install it with: pip install pywinauto"
-    ) from _pwn_import_error
+from ._imports import Application, WindowSpecification
 
 # ///////////////////////////////////////////////////////////////
 # CONSTANTS
@@ -58,7 +46,7 @@ _EXCEL_TITLE_RE: str = r".*- Microsoft Excel$"
 # ///////////////////////////////////////////////////////////////
 
 
-def get_excel_window(hwnd: int | None = None) -> Any:
+def _get_excel_window(hwnd: int | None = None) -> WindowSpecification:  # type: ignore[reportUnusedFunction]  -- imported by _ribbon, _menu, _dialog
     """Return a pywinauto ``WindowSpecification`` for the Excel main window.
 
     Connects to a running Excel instance using the ``uia`` backend, which
@@ -76,9 +64,8 @@ def get_excel_window(hwnd: int | None = None) -> Any:
             to auto-detect the first visible Excel instance.
 
     Returns:
-        Any: A ``pywinauto`` ``WindowSpecification`` representing the Excel
-        main window.  The exact return type is ``pywinauto.application.WindowSpecification``
-        but is typed as ``Any`` because pywinauto ships only partial stubs.
+        WindowSpecification: A ``pywinauto`` ``WindowSpecification``
+        representing the Excel main window.
 
     Raises:
         GUIOperationError: If no Excel window can be found, or if the
@@ -95,24 +82,24 @@ def get_excel_window(hwnd: int | None = None) -> Any:
         from the managing ``ExcelApp`` instance::
 
             hwnd = xl.hwnd
-            win = get_excel_window(hwnd=hwnd)
+            win = _get_excel_window(hwnd=hwnd)
 
     Example:
-        >>> win = get_excel_window()
+        >>> win = _get_excel_window()
         >>> win.set_focus()
 
-        >>> win = get_excel_window(hwnd=131234)
+        >>> win = _get_excel_window(hwnd=131234)
     """
-    logger.debug("get_excel_window: hwnd=%r", hwnd)
+    logger.debug("_get_excel_window: hwnd=%r", hwnd)
     try:
         app = Application(backend="uia")
         if hwnd is not None:
             app.connect(handle=hwnd)
-            window: Any = app.window(handle=hwnd)
+            window: WindowSpecification = app.window(handle=hwnd)
         else:
             app.connect(title_re=_EXCEL_TITLE_RE)
             window = app.window(title_re=_EXCEL_TITLE_RE)
-        logger.debug("get_excel_window: connected to Excel window %r", window)
+        logger.debug("_get_excel_window: connected to Excel window %r", window)
         return window
     except GUIOperationError:
         raise
