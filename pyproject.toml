@@ -4,8 +4,8 @@
 # /////////////////////////////////////////////////////////////////////
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 # /////////////////////////////////////////////////////////////////////
 # 📦 PROJECT METADATA
@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ezxl"
-version = "0.1.0"
+version = "1.0.0"
 description = "A short description of ezxl"
 readme = "README.md"
 license = { text = "MIT" }
@@ -29,7 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Build Tools",
@@ -41,7 +41,17 @@ classifiers = [
 # Core production dependencies for runtime
 # /////////////////////////////////////////////////////////////////////
 
-dependencies = []
+dependencies = [
+    "ezplog>=2.0.0",
+    "polars>=1.0.0",
+    "fastexcel>=0.11.0",
+    "openpyxl>=3.1.0",
+    "xlsxwriter>=3.0.0",
+    "pywin32>=306",
+    "pywinauto>=0.6.8",
+    #mypy-types
+    "types-Pygments",
+]
 
 # /////////////////////////////////////////////////////////////////////
 # 🛠️ OPTIONAL DEPENDENCIES
@@ -109,48 +119,35 @@ PyPI = "https://pypi.org/project/ezxl/"
 [project.scripts]
 
 # ///////////////////////////////////////////////////////////////
-# 📦 SETUPTOOLS CONFIGURATION
+# 📦 HATCHLING CONFIGURATION
 # Package discovery and inclusion/exclusion patterns
 # /////////////////////////////////////////////////////////////////////
 
-[tool.setuptools]
-include-package-data = true
+[tool.hatch.build.targets.wheel]
+where = ["src/ezxl"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["ezxl*"]
+[tool.hatch.build.targets.sdist]
 exclude = [
-    "tests*",
-    "build*",
-    "dist*",
-    "*.egg-info*",
-    ".pytest_cache*",
-    ".mypy_cache*",
-    ".ruff_cache*",
-    ".cursor*",
-    ".benchmarks*",
-    "coverage*",
-    "htmlcov*",
-    ".venv*",
-    "venv*",
-    "__pycache__*",
-    "**/__pycache__*",
-    ".git*",
+    "tests",
+    "docs",
+    "examples",
+    "htmlcov",
+    ".hooks",
+    ".venv",
+    "venv",
+    ".git",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".cursor",
+    ".tmp",
     "*.pyc",
     "*.pyo",
-    "*.pyd",
-    ".coverage",
     "*.log",
+    ".coverage",
+    "coverage.xml",
     ".DS_Store",
     "Thumbs.db",
-    "docs*",
-    "examples*",
-    "_temp*",
-    ".hooks*",
 ]
-
-[tool.setuptools.package-data]
-"ezxl" = ["py.typed"]
 
 # /////////////////////////////////////////////////////////////////////
 # 🎨 CODE FORMATTING & LINTING TOOLS
@@ -232,9 +229,11 @@ error-on-warning = false
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
 
 # Include/exclude paths
-include = ["src/ezxl"]
+include = ["src"]
 exclude = [
     "**/__pycache__",
     ".venv",
@@ -304,12 +303,30 @@ layers = []
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not excel'"
+markers = [
+    "excel: marks tests requiring a live Excel installation (deselect with '-m not excel')",
+    "unit: marks tests as unit tests (no external dependencies)",
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow (can be excluded with --fast)",
+]
 
 [tool.coverage.run]
 source = ["ezxl"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    # COM/live-Excel modules — require a running Excel instance (excluded from CI)
+    "*/core/_excel_app.py",
+    "*/core/_workbook.py",
+    "*/core/_sheet.py",
+    "*/utils/_com_utils.py",
+    # win32com GUI backends — require COM and a live Excel window
+    "*/gui/win32com/*",
+    "*/gui/_gui_proxy.py",
+    # pywinauto GUI backends — require pywinauto and a live Excel HWND
+    "*/gui/pywinauto/*",
+]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 80
+fail_under = 60

@@ -3,7 +3,22 @@
 # Project: EzXl
 # ///////////////////////////////////////////////////////////////
 
-"""EzXl - A short description of the project."""
+"""EzXl — Generic Excel automation library via COM and openpyxl.
+
+Provides a clean Python interface for:
+
+- Opening and closing Excel files via COM (``ExcelApp``, ``WorkbookProxy``)
+- Attaching to an already-running Excel instance
+- Navigating worksheets and manipulating cells/ranges (``SheetProxy``,
+  ``CellProxy``, ``RangeProxy``)
+- Converting between file formats without a live Excel process
+  (``read_excel``, ``read_csv``, ``xlsx_to_csv``, ``csv_to_xlsx``,
+  ``read_sheet``)
+- Formatting closed workbook files via openpyxl (``ExcelFormatter``)
+
+Requires Python 3.11+ and a 64-bit Excel installation for COM features.
+Format conversion and closed-file formatting work without Excel installed.
+"""
 
 from __future__ import annotations
 
@@ -22,15 +37,17 @@ from .version import __version__
 
 __author__ = "Neuraaak"
 __maintainer__ = "Neuraaak"
-__description__ = "EzXl - Project compilation and distribution framework for Python"
+__description__ = "EzXl — Generic Excel automation library via COM and openpyxl"
 __python_requires__ = ">=3.11"
 __keywords__ = [
-    "compilation",
-    "packaging",
-    "distribution",
-    "cx_freeze",
-    "pyinstaller",
-    "nuitka",
+    "excel",
+    "automation",
+    "com",
+    "openpyxl",
+    "xlsx",
+    "win32com",
+    "spreadsheet",
+    "office",
 ]
 __url__ = "https://github.com/neuraaak/EzXl"
 __repository__ = "https://github.com/neuraaak/EzXl"
@@ -49,4 +66,76 @@ if sys.version_info < (3, 11):  # noqa: UP036
 # PUBLIC API
 # ///////////////////////////////////////////////////////////////
 
-__all__ = []
+from .core._excel_app import ExcelApp
+from .core._sheet import CellProxy, RangeProxy, SheetProxy
+from .core._workbook import WorkbookProxy
+from .exceptions import (
+    COMOperationError,
+    ExcelNotAvailableError,
+    ExcelSessionLostError,
+    ExcelThreadViolationError,
+    EzXlError,
+    FormatterError,
+    GUIOperationError,
+    SheetNotFoundError,
+    WorkbookNotFoundError,
+)
+from .gui._gui_proxy import GUIProxy
+from .gui._protocols import (
+    AbstractDialogBackend,
+    AbstractKeysBackend,
+    AbstractMenuBackend,
+    AbstractRibbonBackend,
+)
+from .gui.pywinauto import (
+    PywinautoDialogBackend,
+    PywinautoKeysBackend,
+    PywinautoMenuBackend,
+    PywinautoRibbonBackend,
+)
+from .gui.win32com._dialog import DialogProxy
+from .gui.win32com._menu import MenuProxy
+from .gui.win32com._ribbon import RibbonProxy
+from .io._converters import csv_to_xlsx, read_csv, read_excel, read_sheet, xlsx_to_csv
+from .io._formatters import ExcelFormatter
+
+__all__ = [
+    # Exceptions
+    "EzXlError",
+    "ExcelNotAvailableError",
+    "ExcelSessionLostError",
+    "ExcelThreadViolationError",
+    "WorkbookNotFoundError",
+    "SheetNotFoundError",
+    "COMOperationError",
+    "FormatterError",
+    "GUIOperationError",
+    # COM automation
+    "ExcelApp",
+    "WorkbookProxy",
+    "SheetProxy",
+    "CellProxy",
+    "RangeProxy",
+    # GUI interaction
+    "GUIProxy",
+    "RibbonProxy",
+    "MenuProxy",
+    "DialogProxy",
+    # GUI protocols
+    "AbstractRibbonBackend",
+    "AbstractMenuBackend",
+    "AbstractDialogBackend",
+    "AbstractKeysBackend",
+    # GUI — pywinauto backends
+    "PywinautoRibbonBackend",
+    "PywinautoMenuBackend",
+    "PywinautoDialogBackend",
+    "PywinautoKeysBackend",
+    # Closed-file utilities
+    "ExcelFormatter",
+    "read_excel",
+    "read_csv",
+    "xlsx_to_csv",
+    "csv_to_xlsx",
+    "read_sheet",
+]

@@ -1,10 +1,4 @@
 # ///////////////////////////////////////////////////////////////
-# VERSION - Package version metadata
+# utils - Internal COM utilities
 # Project: EzXl
 # ///////////////////////////////////////////////////////////////
-
-"""Centralized package version metadata."""
-
-from __future__ import annotations
-
-__version__ = "1.0.0"

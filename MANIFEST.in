@@ -1,0 +1,9 @@
+# Include documentation
+include README.md
+include LICENSE
+
+# PEP 561 type information marker
+include src/ezxl/py.typed
+
+# Include configuration files
+include pyproject.toml
