@@ -81,35 +81,6 @@ def update_version_py(version: str) -> None:
     )
 
 
-def update_readme(version: str) -> None:
-    """Replace version badge in README.md with the given version."""
-    project_root = Path(__file__).resolve().parents[2]
-    readme_path = project_root / "README.md"
-    content = readme_path.read_text(encoding="utf-8")
-
-    pattern = r"(Version-)(\d+\.\d+\.\d+)(-orange\.svg\?style=for-the-badge\))"
-    new_content, count = re.subn(
-        pattern,
-        rf"\g<1>{version}\g<3>",
-        content,
-        count=1,
-    )
-
-    if count == 0:
-        error_msg = "Version badge not found in README.md"
-        console.print(f"[red]❌[/red] {error_msg}")
-        console.print(
-            "[yellow]💡[/yellow] Expected format: "
-            "[![Version](.../Version-X.Y.Z-orange.svg?style=for-the-badge)]"
-        )
-        raise RuntimeError(error_msg)
-
-    readme_path.write_text(new_content, encoding="utf-8")
-    console.print(
-        f"[green]✓[/green] Updated [cyan]README.md[/cyan] badge to version [bold]{version}[/bold]"
-    )
-
-
 def main() -> None:
     """Entry point."""
     title = Text("🔄 Version Synchronization", style="bold cyan")
@@ -120,7 +91,6 @@ def main() -> None:
     try:
         version = read_version()
         update_version_py(version)
-        update_readme(version)
 
         console.print()
         console.print(
