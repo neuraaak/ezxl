@@ -29,34 +29,42 @@ from __future__ import annotations
 # ///////////////////////////////////////////////////////////////
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
-# Local imports
-from ._gui_proxy import GUIProxy
+# Standard library imports
+import sys
+
+# Local imports — cross-platform (pure Python ABCs)
 from ._protocols import (
     AbstractDialogBackend,
     AbstractKeysBackend,
     AbstractMenuBackend,
     AbstractRibbonBackend,
 )
-from .pywinauto import (
-    PywinautoDialogBackend,
-    PywinautoKeysBackend,
-    PywinautoMenuBackend,
-    PywinautoRibbonBackend,
-)
-from .win32com import DialogProxy, MenuProxy, RibbonProxy
 
 __all__ = [
-    "GUIProxy",
-    "RibbonProxy",
-    "MenuProxy",
-    "DialogProxy",
     "AbstractRibbonBackend",
     "AbstractMenuBackend",
     "AbstractDialogBackend",
     "AbstractKeysBackend",
-    # pywinauto backends
-    "PywinautoRibbonBackend",
-    "PywinautoMenuBackend",
-    "PywinautoDialogBackend",
-    "PywinautoKeysBackend",
 ]
+
+# Local imports — Windows only (COM / pywinauto)
+if sys.platform == "win32":
+    from ._gui_proxy import GUIProxy
+    from .pywinauto import (
+        PywinautoDialogBackend,
+        PywinautoKeysBackend,
+        PywinautoMenuBackend,
+        PywinautoRibbonBackend,
+    )
+    from .win32com import DialogProxy, MenuProxy, RibbonProxy
+
+    __all__ += [
+        "GUIProxy",
+        "RibbonProxy",
+        "MenuProxy",
+        "DialogProxy",
+        "PywinautoRibbonBackend",
+        "PywinautoMenuBackend",
+        "PywinautoDialogBackend",
+        "PywinautoKeysBackend",
+    ]
