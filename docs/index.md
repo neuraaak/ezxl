@@ -1,11 +1,11 @@
 # EzXl
 
-[![PyPI version](https://img.shields.io/pypi/v/ezxm?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxm/)
-[![Python versions](https://img.shields.io/pypi/pyversions/ezxm?style=flat&logo=python&logoColor=white)](https://pypi.org/project/ezxm/)
-[![PyPI status](https://img.shields.io/pypi/status/ezxm?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxm/)
-[![License](https://img.shields.io/badge/license-MIT-green?style=flat&logo=github&logoColor=white)](https://github.com/neuraaak/ezxm/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxm/publish-pypi.yml?style=flat&label=publish&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxm/actions/workflows/publish-pypi.yml)
-[![Docs](https://img.shields.io/badge/docs-Github%20Pages-blue?style=flat&logo=materialformkdocs&logoColor=white)](https://neuraaak.github.io/ezxm/)
+[![PyPI version](https://img.shields.io/pypi/v/ezxl?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxl/)
+[![Python versions](https://img.shields.io/pypi/pyversions/ezxl?style=flat&logo=python&logoColor=white)](https://pypi.org/project/ezxl/)
+[![PyPI status](https://img.shields.io/pypi/status/ezxl?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxl/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat&logo=github&logoColor=white)](https://github.com/neuraaak/ezxl/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxl/publish-pypi.yml?style=flat&label=publish&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxl/actions/workflows/publish-pypi.yml)
+[![Docs](https://img.shields.io/badge/docs-Github%20Pages-blue?style=flat&logo=materialformkdocs&logoColor=white)](https://neuraaak.github.io/ezxl/)
 [![uv](https://img.shields.io/badge/package%20manager-uv-DE5FE9?style=flat&logo=uv&logoColor=white)](https://github.com/astral-sh/uv)
 [![linter](https://img.shields.io/badge/linter-ruff-orange?style=flat&logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 [![type checker](https://img.shields.io/badge/type%20checker-ty-orange?style=flat&logo=astral&logoColor=white)](https://github.com/astral-sh/ty)
