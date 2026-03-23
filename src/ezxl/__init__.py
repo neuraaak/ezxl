@@ -63,12 +63,9 @@ if sys.version_info < (3, 11):  # noqa: UP036
     )
 
 # ///////////////////////////////////////////////////////////////
-# PUBLIC API
+# PUBLIC API — cross-platform (pure Python, no COM)
 # ///////////////////////////////////////////////////////////////
 
-from .core._excel_app import ExcelApp
-from .core._sheet import CellProxy, RangeProxy, SheetProxy
-from .core._workbook import WorkbookProxy
 from .exceptions import (
     COMOperationError,
     ExcelNotAvailableError,
@@ -80,24 +77,33 @@ from .exceptions import (
     SheetNotFoundError,
     WorkbookNotFoundError,
 )
-from .gui._gui_proxy import GUIProxy
 from .gui._protocols import (
     AbstractDialogBackend,
     AbstractKeysBackend,
     AbstractMenuBackend,
     AbstractRibbonBackend,
 )
-from .gui.pywinauto import (
-    PywinautoDialogBackend,
-    PywinautoKeysBackend,
-    PywinautoMenuBackend,
-    PywinautoRibbonBackend,
-)
-from .gui.win32com._dialog import DialogProxy
-from .gui.win32com._menu import MenuProxy
-from .gui.win32com._ribbon import RibbonProxy
 from .io._converters import csv_to_xlsx, read_csv, read_excel, read_sheet, xlsx_to_csv
 from .io._formatters import ExcelFormatter
+
+# ///////////////////////////////////////////////////////////////
+# PUBLIC API — Windows only (COM / win32com / pywinauto)
+# ///////////////////////////////////////////////////////////////
+
+if sys.platform == "win32":
+    from .core._excel_app import ExcelApp
+    from .core._sheet import CellProxy, RangeProxy, SheetProxy
+    from .core._workbook import WorkbookProxy
+    from .gui._gui_proxy import GUIProxy
+    from .gui.pywinauto import (
+        PywinautoDialogBackend,
+        PywinautoKeysBackend,
+        PywinautoMenuBackend,
+        PywinautoRibbonBackend,
+    )
+    from .gui.win32com._dialog import DialogProxy
+    from .gui.win32com._menu import MenuProxy
+    from .gui.win32com._ribbon import RibbonProxy
 
 __all__ = [
     # Exceptions
@@ -110,27 +116,11 @@ __all__ = [
     "COMOperationError",
     "FormatterError",
     "GUIOperationError",
-    # COM automation
-    "ExcelApp",
-    "WorkbookProxy",
-    "SheetProxy",
-    "CellProxy",
-    "RangeProxy",
-    # GUI interaction
-    "GUIProxy",
-    "RibbonProxy",
-    "MenuProxy",
-    "DialogProxy",
-    # GUI protocols
+    # GUI protocols (cross-platform ABCs)
     "AbstractRibbonBackend",
     "AbstractMenuBackend",
     "AbstractDialogBackend",
     "AbstractKeysBackend",
-    # GUI — pywinauto backends
-    "PywinautoRibbonBackend",
-    "PywinautoMenuBackend",
-    "PywinautoDialogBackend",
-    "PywinautoKeysBackend",
     # Closed-file utilities
     "ExcelFormatter",
     "read_excel",
@@ -139,3 +129,23 @@ __all__ = [
     "csv_to_xlsx",
     "read_sheet",
 ]
+
+if sys.platform == "win32":
+    __all__ += [
+        # COM automation
+        "ExcelApp",
+        "WorkbookProxy",
+        "SheetProxy",
+        "CellProxy",
+        "RangeProxy",
+        # GUI interaction
+        "GUIProxy",
+        "RibbonProxy",
+        "MenuProxy",
+        "DialogProxy",
+        # GUI — pywinauto backends
+        "PywinautoRibbonBackend",
+        "PywinautoMenuBackend",
+        "PywinautoDialogBackend",
+        "PywinautoKeysBackend",
+    ]

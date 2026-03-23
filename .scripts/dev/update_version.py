@@ -3,9 +3,10 @@
 # UPDATE_VERSION - Sync version.py and README badge from pyproject.toml
 # ///////////////////////////////////////////////////////////////
 
-"""Update version.py and README.md badge from the version defined in pyproject.toml.
+"""Update version.py from the version defined in pyproject.toml.
 
 pyproject.toml [project].version is the single source of truth.
+The README version badge is dynamic (shields.io PyPI) and does not need updating.
 """
 
 from __future__ import annotations
@@ -35,7 +36,6 @@ project_name = "EzXl"
 # GLOBAL CONSOLE
 # ///////////////////////////////////////////////////////////////
 
-# Configure console with UTF-8 encoding for Windows emoji support
 # Force UTF-8 encoding on Windows
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -96,11 +96,11 @@ def main() -> None:
         console.print(
             Panel.fit(
                 f"[bold green]✓ Version synchronization completed![/bold green]\n"
-                f"[dim]All files updated to version {version}[/dim]",
+                f"[dim]version.py updated to {version}[/dim]",
                 border_style="green",
             )
         )
-    except (RuntimeError, FileNotFoundError, KeyError) as e:
+    except (FileNotFoundError, KeyError) as e:
         console.print()
         console.print(
             Panel.fit(

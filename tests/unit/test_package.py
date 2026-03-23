@@ -22,6 +22,7 @@ from __future__ import annotations
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
 import importlib
+import sys  # noqa: F401 — used in skipif decorators; Pyright false-positive on Windows
 import types
 
 # Third-party imports
@@ -55,6 +56,7 @@ def test_should_expose_version_string() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(sys.platform != "win32", reason="COM automation requires Windows")
 def test_should_export_all_com_proxy_symbols() -> None:
     """Verify that the core COM proxy classes are exported from ``ezxl``."""
     import ezxl
@@ -106,6 +108,7 @@ def test_should_export_all_gui_protocol_symbols() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(sys.platform != "win32", reason="COM automation requires Windows")
 def test_should_export_all_gui_win32com_symbols() -> None:
     """Verify that the win32com GUI backend classes are exported."""
     import ezxl
@@ -116,6 +119,7 @@ def test_should_export_all_gui_win32com_symbols() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(sys.platform != "win32", reason="pywinauto requires Windows")
 def test_should_export_all_gui_pywinauto_symbols() -> None:
     """Verify that the pywinauto GUI backend classes are exported."""
     import ezxl
