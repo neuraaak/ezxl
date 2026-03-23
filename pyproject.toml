@@ -47,8 +47,8 @@ dependencies = [
     "fastexcel>=0.11.0",
     "openpyxl>=3.1.0",
     "xlsxwriter>=3.0.0",
-    "pywin32>=306",
-    "pywinauto>=0.6.8",
+    "pywin32>=306; sys_platform == 'win32'",
+    "pywinauto>=0.6.8; sys_platform == 'win32'",
     #mypy-types
     "types-Pygments",
 ]
