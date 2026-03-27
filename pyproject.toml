@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ezxl"
-version = "1.0.0"
+version = "1.0.1"
 description = "A short description of ezxl"
 readme = "README.md"
 license = { text = "MIT" }

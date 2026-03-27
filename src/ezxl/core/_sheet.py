@@ -41,13 +41,13 @@ logger = get_logger(__name__)
 
 # pywintypes ships without complete type stubs — cache the runtime types via
 # getattr so that type checkers (ty, pyright) don't flag missing attributes.
-_TimeType: type = pywintypes.TimeType  # type: ignore[attr-defined]
-_PywintypesError: type = pywintypes.error  # type: ignore[attr-defined]
+_COM_TIME_TYPE: type = pywintypes.TimeType  # type: ignore[attr-defined]
+_COM_ERROR_TYPE: type = pywintypes.error  # type: ignore[attr-defined]
 
 
 def _is_com_date(value: Any) -> bool:
     """Return True if ``value`` is a COM pywintypes.datetime instance."""
-    return isinstance(value, _TimeType)
+    return isinstance(value, _COM_TIME_TYPE)
 
 
 def _normalise_cell_value(value: Any) -> Any:
@@ -83,7 +83,7 @@ def _normalise_cell_value(value: Any) -> Any:
 
     # Detect COM error values (#N/A, #VALUE!, etc.) — pywintypes wraps
     # these as pywintypes.error instances.
-    if isinstance(value, _PywintypesError):
+    if isinstance(value, _COM_ERROR_TYPE):
         logger.warning("Cell contains a COM error value (%r); returning None.", value)
         return None
 

@@ -41,7 +41,7 @@ logger = get_logger(__name__)
 
 # pywintypes ships without complete type stubs — cache the runtime types via
 # getattr so that type checkers (ty, pyright) don't flag missing attributes.
-_COMError: type = pywintypes.com_error  # type: ignore[attr-defined]
+_COM_ERROR_CLASS: type = pywintypes.com_error  # type: ignore[attr-defined]
 
 # COM HRESULT codes that indicate a dead/disconnected server.
 # RPC_E_DISCONNECTED (0x80010108) and RPC_E_SERVER_DIED (0x80010007).
@@ -53,7 +53,7 @@ _DISCONNECTED_HRESULTS: frozenset[int] = frozenset(
     ]
 )
 
-_F = TypeVar("_F", bound=Callable[..., Any])
+_FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
 
 # ///////////////////////////////////////////////////////////////
 # FUNCTIONS
@@ -93,7 +93,7 @@ def wait_until_ready(xl_app: Any, timeout: float = 30.0) -> None:
     raise COMOperationError(f"Excel did not become ready within {timeout:.1f} seconds.")
 
 
-def wrap_com_error(func: _F) -> _F:
+def wrap_com_error(func: _FuncT) -> _FuncT:
     """Decorator that intercepts ``pywintypes.com_error`` and re-raises as EzXl exceptions.
 
     Wraps any COM boundary function so that raw pywin32 errors never escape
@@ -117,7 +117,7 @@ def wrap_com_error(func: _F) -> _F:
         try:
             return func(*args, **kwargs)
         except Exception as exc:
-            if isinstance(exc, _COMError):
+            if isinstance(exc, _COM_ERROR_CLASS):
                 hresult: int = exc.args[0] if exc.args else 0
                 if hresult in _DISCONNECTED_HRESULTS:
                     raise ExcelSessionLostError(

@@ -6,7 +6,7 @@
 """
 Shared Excel window connection helper for pywinauto backends.
 
-Provides :func:`get_excel_window`, a single entry point used by all four
+Provides :func:`_get_excel_window`, a single entry point used by all four
 pywinauto backend classes to obtain a ``pywinauto`` ``WindowSpecification``
 for the Excel main window.
 
@@ -58,7 +58,7 @@ _EXCEL_TITLE_RE: str = r".*- Microsoft Excel$"
 # ///////////////////////////////////////////////////////////////
 
 
-def get_excel_window(hwnd: int | None = None) -> Any:
+def _get_excel_window(hwnd: int | None = None) -> Any:  # type: ignore[reportUnusedFunction]  -- imported by _ribbon, _menu, _dialog
     """Return a pywinauto ``WindowSpecification`` for the Excel main window.
 
     Connects to a running Excel instance using the ``uia`` backend, which
@@ -95,15 +95,15 @@ def get_excel_window(hwnd: int | None = None) -> Any:
         from the managing ``ExcelApp`` instance::
 
             hwnd = xl.hwnd
-            win = get_excel_window(hwnd=hwnd)
+            win = _get_excel_window(hwnd=hwnd)
 
     Example:
-        >>> win = get_excel_window()
+        >>> win = _get_excel_window()
         >>> win.set_focus()
 
-        >>> win = get_excel_window(hwnd=131234)
+        >>> win = _get_excel_window(hwnd=131234)
     """
-    logger.debug("get_excel_window: hwnd=%r", hwnd)
+    logger.debug("_get_excel_window: hwnd=%r", hwnd)
     try:
         app = Application(backend="uia")
         if hwnd is not None:
@@ -112,7 +112,7 @@ def get_excel_window(hwnd: int | None = None) -> Any:
         else:
             app.connect(title_re=_EXCEL_TITLE_RE)
             window = app.window(title_re=_EXCEL_TITLE_RE)
-        logger.debug("get_excel_window: connected to Excel window %r", window)
+        logger.debug("_get_excel_window: connected to Excel window %r", window)
         return window
     except GUIOperationError:
         raise

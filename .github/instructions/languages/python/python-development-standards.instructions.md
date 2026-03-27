@@ -92,6 +92,87 @@ Test coverage is a means to an end, not an end in itself. Focus on testing criti
 
 Avoid premature optimization and don't aim for 100% coverage of trivial code. Property-based testing is particularly valuable for finding edge cases that are difficult to enumerate manually.
 
+## Symbol Visibility & API Surface Design
+
+### Naming Conventions by Symbol Type
+
+Consistent naming communicates intent and visibility at a glance. Python has no access modifiers — naming conventions are the only signal a caller has about whether a symbol is part of the public contract or an implementation detail.
+
+- **Classes**: `PascalCase` for public classes; `_PascalCase` for internal classes not part of the public API
+- **Functions and methods**: `snake_case` for public; `_snake_case` for internal/protected; `__name` (double underscore) only when name-mangling is genuinely required (rare)
+- **Constants**: `UPPER_SNAKE_CASE` at module level and class level
+- **Module names**: `snake_case`, short, no hyphens
+- **Type aliases**: `PascalCase` (they behave like types: `UserId = int`, `ResponseData = dict[str, Any]`)
+- **Private instance attributes**: `_attr` for protected (accessible by subclasses), `__attr` only when name-mangling is explicitly needed to prevent subclass collisions
+
+Never use `__double_underscore__` (dunder) names for custom symbols — they are reserved for Python protocols (`__init__`, `__repr__`, `__enter__`, etc.).
+
+### The Underscore Prefix — Decision Rules
+
+The single underscore `_` is the primary signal for "not public". Apply it consistently:
+
+- **`name`** — public, stable, part of the documented API contract
+- **`_name`** — internal implementation detail; callers outside the module or class should not depend on it
+- **`__name`** (inside a class) — name-mangled to `_ClassName__name`; use only to prevent accidental override in deep inheritance hierarchies
+- **`_`** alone — throwaway variable (`for _ in range(n)`) or ignored return value
+
+A function or attribute prefixed with `_` is a promise: _"I may change or remove this without a deprecation notice."_ Use it freely for helpers, use it deliberately for attributes that subclasses should not touch.
+
+### Defining the Public API with `__all__`
+
+- **ALWAYS** define `__all__` in modules that expose a public API
+- **LIST** only the symbols that are part of the stable public contract
+- **USE** `__all__` as documentation of intent — it is the authoritative answer to "what does this module export?"
+- **KEEP** `__all__` sorted alphabetically for easy diffing
+
+```python
+__all__ = [
+    "MyClass",
+    "helper_function",
+    "SOME_CONSTANT",
+]
+```
+
+Without `__all__`, every name not starting with `_` is implicitly exported. This creates accidental API surface that is hard to shrink later.
+
+### Orphan Functions vs Methods — Decision Rule
+
+Not every function belongs inside a class. Use this decision tree:
+
+- **Make it a method** if it uses `self` or `cls`, or if its behavior is intrinsically tied to the class lifecycle (construction, teardown, state transitions)
+- **Make it a module-level function** if it operates on plain data with no class dependency, is reusable across multiple classes, or is a pure transformation
+- **Make it a `@staticmethod`** only when it is logically related to the class for documentation/organization purposes but does not use `self` or `cls` — prefer a module-level function otherwise, as `@staticmethod` adds no real encapsulation
+- **Make it a `@classmethod`** for alternative constructors (`from_dict`, `from_file`) and factory patterns
+
+Avoid "utility class" anti-patterns (`class Utils: @staticmethod def do_thing()`). A module with module-level functions is cleaner, more testable, and more Pythonic.
+
+### Class Attribute vs Instance Attribute
+
+- **Class attributes** (`ClassName.attr`): shared across all instances; use for constants, default values, and class-level configuration
+- **Instance attributes** (`self.attr`): per-instance state; always initialize in `__init__` with a type hint in the class body
+- **Never** rely on class attributes being mutable across instances — mutable class attributes (lists, dicts) are a common source of shared-state bugs
+
+```python
+class Connection:
+    # Class attribute — shared constant
+    DEFAULT_TIMEOUT: int = 30
+
+    def __init__(self, host: str) -> None:
+        # Instance attributes — per-instance state
+        self.host = host
+        self._retries: int = 0        # protected internal counter
+        self.__token: str | None = None  # name-mangled only if subclass collision is a real risk
+```
+
+### Constants — When to Use What
+
+- **Module-level `UPPER_SNAKE_CASE`**: simple scalar values used across the module
+- **`enum.Enum`**: when constants represent a closed set of named values that benefit from iteration, membership testing, or serialization (`Color.RED`, `Status.PENDING`)
+- **`typing.Literal`**: when constants are used purely for type-checking and never iterated over at runtime
+- **Class-level constants**: allowed when they are tightly scoped to a single class; still `UPPER_SNAKE_CASE`
+
+Prefer `enum.Enum` over bare string/int constants when the set of valid values is fixed and known at design time. This prevents invalid values from entering the system silently.
+
 ## Performance Engineering
 
 ### Optimization Principles

@@ -38,7 +38,7 @@ from typing import Any
 # Local imports
 from ...exceptions import GUIOperationError
 from .._protocols import AbstractRibbonBackend
-from ._connect import get_excel_window
+from ._connect import _get_excel_window
 
 # ///////////////////////////////////////////////////////////////
 # OPTIONAL DEPENDENCY GUARD
@@ -123,7 +123,7 @@ class PywinautoRibbonBackend(AbstractRibbonBackend):
 
     def _get_window(self) -> Any:
         """Return the pywinauto ``WindowSpecification`` for Excel."""
-        return get_excel_window(self._hwnd)
+        return _get_excel_window(self._hwnd)
 
     # ///////////////////////////////////////////////////////////////
     # PUBLIC METHODS
