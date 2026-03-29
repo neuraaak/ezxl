@@ -841,10 +841,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-switch-to-the-pywinauto-backend-for-the-ribbon" class="md-nav__link">
+  <a href="#4-inject-the-pywinauto-uia-navigator-for-backstage-actions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Switch to the pywinauto backend for the ribbon
+        4. Inject the pywinauto UIA navigator for Backstage actions
       
     </span>
   </a>
@@ -1022,10 +1022,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-switch-to-the-pywinauto-backend-for-the-ribbon" class="md-nav__link">
+  <a href="#4-inject-the-pywinauto-uia-navigator-for-backstage-actions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Switch to the pywinauto backend for the ribbon
+        4. Inject the pywinauto UIA navigator for Backstage actions
       
     </span>
   </a>
@@ -1154,31 +1154,44 @@
 </span></code></pre></div>
 <p>Common MSO identifiers: <code>"FileSave"</code>, <code>"FileSaveAs"</code>, <code>"Copy"</code>, <code>"Paste"</code>, <code>"PasteValues"</code>, <code>"Undo"</code>, <code>"Redo"</code>, <code>"Bold"</code>, <code>"Italic"</code>.</p>
 <hr />
-<h2 id="4-switch-to-the-pywinauto-backend-for-the-ribbon">4. Switch to the pywinauto backend for the ribbon<a class="headerlink" href="#4-switch-to-the-pywinauto-backend-for-the-ribbon" title="Anchor link to this section">&para;</a></h2>
-<p>Replace the default COM ribbon backend with the pywinauto UI Automation backend. This is useful when the COM GUI surface is blocked or unavailable in the target environment. The rest of the <code>GUIProxy</code> surfaces continue to use their default COM implementations.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ezxl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExcelApp</span><span class="p">,</span> <span class="n">GUIProxy</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ezxl.gui.pywinauto</span><span class="w"> </span><span class="kn">import</span> <span class="n">PywinautoRibbonBackend</span>
+<h2 id="4-inject-the-pywinauto-uia-navigator-for-backstage-actions">4. Inject the pywinauto UIA navigator for Backstage actions<a class="headerlink" href="#4-inject-the-pywinauto-uia-navigator-for-backstage-actions" title="Anchor link to this section">&para;</a></h2>
+<p><code>GUIProxy.backstage</code> (COM) handles all file operations out of the box. When you also need to navigate Backstage panels — such as opening the Options dialog or the Save As panel — inject a <code>PywinautoBackstageBackend</code> as the <code>backstage_nav</code> backend. The rest of the <code>GUIProxy</code> surfaces continue to use their default COM implementations.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ezxl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExcelApp</span><span class="p">,</span> <span class="n">GUIProxy</span><span class="p">,</span> <span class="n">COMBackstageBackend</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ezxl.gui.pywinauto</span><span class="w"> </span><span class="kn">import</span> <span class="n">PywinautoBackstageBackend</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">with</span> <span class="n">ExcelApp</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;attach&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">xl</span><span class="p">:</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="c1"># Bind the pywinauto backend to the exact Excel window managed by xl.</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="c1"># PywinautoBackstageBackend targets the exact Excel window managed by xl.</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># Passing hwnd prevents the backend from attaching to a different</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="c1"># Excel window if multiple instances are running simultaneously.</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">ribbon_backend</span> <span class="o">=</span> <span class="n">PywinautoRibbonBackend</span><span class="p">(</span><span class="n">hwnd</span><span class="o">=</span><span class="n">xl</span><span class="o">.</span><span class="n">hwnd</span><span class="p">)</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">gui</span> <span class="o">=</span> <span class="n">GUIProxy</span><span class="p">(</span><span class="n">xl</span><span class="p">,</span> <span class="n">ribbon</span><span class="o">=</span><span class="n">ribbon_backend</span><span class="p">)</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="c1"># Execute via pywinauto keyboard shortcut (locale-independent)</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">ribbon</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;FileSave&quot;</span><span class="p">)</span>    <span class="c1"># sends Ctrl+S</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">ribbon</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;Bold&quot;</span><span class="p">)</span>        <span class="c1"># sends Ctrl+B</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="c1"># locale must match the display language of the installed Excel.</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">backstage_nav</span> <span class="o">=</span> <span class="n">PywinautoBackstageBackend</span><span class="p">(</span><span class="n">hwnd</span><span class="o">=</span><span class="n">xl</span><span class="o">.</span><span class="n">hwnd</span><span class="p">,</span> <span class="n">locale</span><span class="o">=</span><span class="s2">&quot;fr&quot;</span><span class="p">)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">gui</span> <span class="o">=</span> <span class="n">GUIProxy</span><span class="p">(</span><span class="n">xl</span><span class="p">,</span> <span class="n">backstage_nav</span><span class="o">=</span><span class="n">backstage_nav</span><span class="p">)</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="c1"># File operations via COM — focus-independent, locale-independent</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">backstage</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="c1"># menu and dialog still use the default COM backends</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">bars</span> <span class="o">=</span> <span class="n">gui</span><span class="o">.</span><span class="n">menu</span><span class="o">.</span><span class="n">list_bars</span><span class="p">()</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CommandBars: </span><span class="si">{</span><span class="n">bars</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">backstage</span><span class="o">.</span><span class="n">save_as</span><span class="p">(</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">path</span><span class="o">=</span><span class="s2">&quot;C:/reports/budget_2026_final.xlsx&quot;</span><span class="p">,</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="c1"># FileFormat is inferred from the extension when omitted</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="p">)</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="c1"># Backstage panel navigation via UIA</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">backstage_nav</span><span class="o">.</span><span class="n">open_options</span><span class="p">()</span>       <span class="c1"># opens Excel Options dialog</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">gui</span><span class="o">.</span><span class="n">backstage_nav</span><span class="o">.</span><span class="n">open_save_as_panel</span><span class="p">()</span> <span class="c1"># navigates to the Save As panel</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="c1"># ribbon, menu, and dialog still use the default COM backends</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">can_undo</span> <span class="o">=</span> <span class="n">xl</span><span class="o">.</span><span class="n">gui</span><span class="o">.</span><span class="n">ribbon</span><span class="o">.</span><span class="n">is_enabled</span><span class="p">(</span><span class="s2">&quot;Undo&quot;</span><span class="p">)</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Undo available: </span><span class="si">{</span><span class="n">can_undo</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Limited MSO support</p>
+<div class="admonition note">
+<p class="admonition-title">locale must match the installed Excel language</p>
 </div>
-<p><code>PywinautoRibbonBackend</code> maps MSO identifiers to keyboard shortcuts. Only a curated set is supported: <code>FileSave</code>, <code>Copy</code>, <code>Paste</code>, <code>Bold</code>, <code>Italic</code>, <code>Underline</code>, <code>Undo</code>, <code>Redo</code>. Passing an unmapped identifier raises <code>GUIOperationError</code>. State queries (<code>is_enabled</code>, <code>is_pressed</code>, <code>is_visible</code>) raise <code>NotImplementedError</code> — use <code>RibbonProxy</code> for those.</p>
+<p><code>PywinautoBackstageBackend</code> locates Backstage UI elements by their display label. Pass the two-letter locale code (<code>"en"</code>, <code>"fr"</code>, <code>"de"</code>, etc.) that matches the language pack of the Excel installation on the target machine. A mismatch will cause element lookup to fail with <code>GUIOperationError</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">backstage_nav is None by default</p>
+</div>
+<p>If no <code>backstage_nav</code> backend is injected, <code>gui.backstage_nav</code> is <code>None</code>. Code that accesses <code>gui.backstage_nav</code> without checking for <code>None</code> first will raise <code>AttributeError</code>. Guard with <code>if gui.backstage_nav is not None:</code> when the backend is conditionally available.</p>
 <hr />
 <h2 id="5-convert-xlsx-to-csv-without-excel-open">5. Convert xlsx to csv without Excel open<a class="headerlink" href="#5-convert-xlsx-to-csv-without-excel-open" title="Anchor link to this section">&para;</a></h2>
 <p><code>xlsx_to_csv</code> operates entirely on closed files using polars and fastexcel. No running Excel process is required.</p>

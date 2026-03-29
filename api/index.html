@@ -1012,7 +1012,7 @@
 </table>
 <hr />
 <h2 id="gui-interaction">GUI interaction<a class="headerlink" href="#gui-interaction" title="Anchor link to this section">&para;</a></h2>
-<p>Facade and backend classes for ribbon commands, menus, dialogs, and keystroke injection.</p>
+<p>Facade and backend classes for ribbon commands, menus, dialogs, keystroke injection, and Backstage file operations.</p>
 <table>
 <thead>
 <tr>
@@ -1023,7 +1023,7 @@
 <tbody>
 <tr>
 <td><a href="reference/#ezxl.GUIProxy"><code>GUIProxy</code></a></td>
-<td>Unified GUI facade. Bundles ribbon, menu, dialog, and keys backends. Accepts alternative backends at construction time.</td>
+<td>Unified GUI facade. Bundles ribbon, menu, dialog, keys, backstage (COM), and optional backstage_nav (UIA). Accepts alternative backends at construction time.</td>
 </tr>
 <tr>
 <td><a href="reference/#ezxl.RibbonProxy"><code>RibbonProxy</code></a></td>
@@ -1036,6 +1036,10 @@
 <tr>
 <td><a href="reference/#ezxl.DialogProxy"><code>DialogProxy</code></a></td>
 <td>COM-based dialog backend. Provides <code>get_file_open</code>, <code>get_file_save</code>, and <code>alert</code>.</td>
+</tr>
+<tr>
+<td><a href="reference/#ezxl.COMBackstageBackend"><code>COMBackstageBackend</code></a></td>
+<td>COM-based Backstage backend. Implements file operations (<code>save</code>, <code>save_as</code>, <code>open_file</code>, <code>close_workbook</code>) via the Excel COM object model. Default backend for <code>GUIProxy.backstage</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -1066,6 +1070,14 @@
 <td><a href="reference/#ezxl.AbstractKeysBackend"><code>AbstractKeysBackend</code></a></td>
 <td>Contract for keystroke injection.</td>
 </tr>
+<tr>
+<td><a href="reference/#ezxl.AbstractBackstageFileOps"><code>AbstractBackstageFileOps</code></a></td>
+<td>Contract for Backstage file operations via COM (<code>save</code>, <code>save_as</code>, <code>open_file</code>, <code>close_workbook</code>). Implemented by <code>COMBackstageBackend</code>.</td>
+</tr>
+<tr>
+<td><a href="reference/#ezxl.AbstractBackstageNavigator"><code>AbstractBackstageNavigator</code></a></td>
+<td>Contract for Backstage UIA navigation (<code>open_options</code>, <code>open_save_as_panel</code>, <code>open_file</code>, <code>close_workbook</code>). Implemented by <code>PywinautoBackstageBackend</code>.</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1080,27 +1092,15 @@
 </thead>
 <tbody>
 <tr>
-<td><a href="reference/#ezxl.PywinautoRibbonBackend"><code>PywinautoRibbonBackend</code></a></td>
-<td>Ribbon execution via keyboard shortcuts sent through pywinauto. Locale-independent. Limited to a curated MSO ID set.</td>
-</tr>
-<tr>
-<td><a href="reference/#ezxl.PywinautoMenuBackend"><code>PywinautoMenuBackend</code></a></td>
-<td>Menu traversal via pywinauto UI Automation clicks.</td>
-</tr>
-<tr>
-<td><a href="reference/#ezxl.PywinautoDialogBackend"><code>PywinautoDialogBackend</code></a></td>
-<td>File pickers and alerts via keyboard shortcuts and Win32 <code>MessageBoxW</code>.</td>
-</tr>
-<tr>
 <td><a href="reference/#ezxl.PywinautoKeysBackend"><code>PywinautoKeysBackend</code></a></td>
-<td>Keystroke injection via <code>pywinauto.keyboard.send_keys</code>.</td>
+<td>Keystroke injection via <code>pywinauto.keyboard.send_keys</code>. No STA constraint.</td>
+</tr>
+<tr>
+<td><a href="reference/#ezxl.PywinautoBackstageBackend"><code>PywinautoBackstageBackend</code></a></td>
+<td>UIA-based Backstage navigator. Implements <code>AbstractBackstageNavigator</code>. Opens the Options panel, Save As panel, and other Backstage views via UI Automation direct click with Alt-sequence fallback. Requires <code>hwnd</code> to target the correct Excel window.</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">pywinauto state queries not supported</p>
-</div>
-<p><code>PywinautoRibbonBackend</code> raises <code>NotImplementedError</code> for <code>is_enabled</code>, <code>is_pressed</code>, and <code>is_visible</code>. pywinauto has no equivalent to <code>Application.CommandBars.GetEnabledMso</code>. Use <code>RibbonProxy</code> (COM backend) when state queries are required.</p>
 <hr />
 <h2 id="file-io">File I/O<a class="headerlink" href="#file-io" title="Anchor link to this section">&para;</a></h2>
 <p>Functions for reading and converting files without a running Excel process. All functions use polars backed by <code>fastexcel</code> (Rust) for Excel I/O.</p>
