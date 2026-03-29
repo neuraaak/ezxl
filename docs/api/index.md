@@ -22,14 +22,15 @@ Core classes for managing an Excel COM session, navigating workbooks, and readin
 
 ## GUI interaction
 
-Facade and backend classes for ribbon commands, menus, dialogs, and keystroke injection.
+Facade and backend classes for ribbon commands, menus, dialogs, keystroke injection, and Backstage file operations.
 
-| Symbol                                               | Description                                                                                                             |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| [`GUIProxy`](reference/index.md#ezxl.GUIProxy)       | Unified GUI facade. Bundles ribbon, menu, dialog, and keys backends. Accepts alternative backends at construction time. |
-| [`RibbonProxy`](reference/index.md#ezxl.RibbonProxy) | COM-based ribbon backend. Executes MSO commands and queries their state via `Application.CommandBars`.                  |
-| [`MenuProxy`](reference/index.md#ezxl.MenuProxy)     | COM-based menu backend. Traverses legacy CommandBars by caption path.                                                   |
-| [`DialogProxy`](reference/index.md#ezxl.DialogProxy) | COM-based dialog backend. Provides `get_file_open`, `get_file_save`, and `alert`.                                       |
+| Symbol                                                               | Description                                                                                                                                                                          |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`GUIProxy`](reference/index.md#ezxl.GUIProxy)                       | Unified GUI facade. Bundles ribbon, menu, dialog, keys, backstage (COM), and optional backstage_nav (UIA). Accepts alternative backends at construction time.                        |
+| [`RibbonProxy`](reference/index.md#ezxl.RibbonProxy)                 | COM-based ribbon backend. Executes MSO commands and queries their state via `Application.CommandBars`.                                                                               |
+| [`MenuProxy`](reference/index.md#ezxl.MenuProxy)                     | COM-based menu backend. Traverses legacy CommandBars by caption path.                                                                                                                |
+| [`DialogProxy`](reference/index.md#ezxl.DialogProxy)                 | COM-based dialog backend. Provides `get_file_open`, `get_file_save`, and `alert`.                                                                                                    |
+| [`COMBackstageBackend`](reference/index.md#ezxl.COMBackstageBackend) | COM-based Backstage backend. Implements file operations (`save`, `save_as`, `open_file`, `close_workbook`) via the Excel COM object model. Default backend for `GUIProxy.backstage`. |
 
 ---
 
@@ -37,12 +38,14 @@ Facade and backend classes for ribbon commands, menus, dialogs, and keystroke in
 
 Abstract base classes that define the contract for each GUI surface. Implement these to create a custom backend.
 
-| Symbol                                                                   | Description                                              |
-| ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [`AbstractRibbonBackend`](reference/index.md#ezxl.AbstractRibbonBackend) | Contract for ribbon execution and state queries.         |
-| [`AbstractMenuBackend`](reference/index.md#ezxl.AbstractMenuBackend)     | Contract for CommandBar traversal and control execution. |
-| [`AbstractDialogBackend`](reference/index.md#ezxl.AbstractDialogBackend) | Contract for file-open, file-save, and alert dialogs.    |
-| [`AbstractKeysBackend`](reference/index.md#ezxl.AbstractKeysBackend)     | Contract for keystroke injection.                        |
+| Symbol                                                                             | Description                                                                                                                                              |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AbstractRibbonBackend`](reference/index.md#ezxl.AbstractRibbonBackend)           | Contract for ribbon execution and state queries.                                                                                                         |
+| [`AbstractMenuBackend`](reference/index.md#ezxl.AbstractMenuBackend)               | Contract for CommandBar traversal and control execution.                                                                                                 |
+| [`AbstractDialogBackend`](reference/index.md#ezxl.AbstractDialogBackend)           | Contract for file-open, file-save, and alert dialogs.                                                                                                    |
+| [`AbstractKeysBackend`](reference/index.md#ezxl.AbstractKeysBackend)               | Contract for keystroke injection.                                                                                                                        |
+| [`AbstractBackstageFileOps`](reference/index.md#ezxl.AbstractBackstageFileOps)     | Contract for Backstage file operations via COM (`save`, `save_as`, `open_file`, `close_workbook`). Implemented by `COMBackstageBackend`.                 |
+| [`AbstractBackstageNavigator`](reference/index.md#ezxl.AbstractBackstageNavigator) | Contract for Backstage UIA navigation (`open_options`, `open_save_as_panel`, `open_file`, `close_workbook`). Implemented by `PywinautoBackstageBackend`. |
 
 ---
 
@@ -50,15 +53,10 @@ Abstract base classes that define the contract for each GUI surface. Implement t
 
 Optional backends that operate at the OS UI Automation level instead of via COM. Require `pywinauto` to be installed separately.
 
-| Symbol                                                                     | Description                                                                                                          |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [`PywinautoRibbonBackend`](reference/index.md#ezxl.PywinautoRibbonBackend) | Ribbon execution via keyboard shortcuts sent through pywinauto. Locale-independent. Limited to a curated MSO ID set. |
-| [`PywinautoMenuBackend`](reference/index.md#ezxl.PywinautoMenuBackend)     | Menu traversal via pywinauto UI Automation clicks.                                                                   |
-| [`PywinautoDialogBackend`](reference/index.md#ezxl.PywinautoDialogBackend) | File pickers and alerts via keyboard shortcuts and Win32 `MessageBoxW`.                                              |
-| [`PywinautoKeysBackend`](reference/index.md#ezxl.PywinautoKeysBackend)     | Keystroke injection via `pywinauto.keyboard.send_keys`.                                                              |
-
-!!! note "pywinauto state queries not supported"
-`PywinautoRibbonBackend` raises `NotImplementedError` for `is_enabled`, `is_pressed`, and `is_visible`. pywinauto has no equivalent to `Application.CommandBars.GetEnabledMso`. Use `RibbonProxy` (COM backend) when state queries are required.
+| Symbol                                                                           | Description                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`PywinautoKeysBackend`](reference/index.md#ezxl.PywinautoKeysBackend)           | Keystroke injection via `pywinauto.keyboard.send_keys`. No STA constraint.                                                                                                                                                                               |
+| [`PywinautoBackstageBackend`](reference/index.md#ezxl.PywinautoBackstageBackend) | UIA-based Backstage navigator. Implements `AbstractBackstageNavigator`. Opens the Options panel, Save As panel, and other Backstage views via UI Automation direct click with Alt-sequence fallback. Requires `hwnd` to target the correct Excel window. |
 
 ---
 

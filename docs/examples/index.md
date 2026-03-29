@@ -89,33 +89,45 @@ Common MSO identifiers: `"FileSave"`, `"FileSaveAs"`, `"Copy"`, `"Paste"`, `"Pas
 
 ---
 
-## 4. Switch to the pywinauto backend for the ribbon
+## 4. Inject the pywinauto UIA navigator for Backstage actions
 
-Replace the default COM ribbon backend with the pywinauto UI Automation backend. This is useful when the COM GUI surface is blocked or unavailable in the target environment. The rest of the `GUIProxy` surfaces continue to use their default COM implementations.
+`GUIProxy.backstage` (COM) handles all file operations out of the box. When you also need to navigate Backstage panels — such as opening the Options dialog or the Save As panel — inject a `PywinautoBackstageBackend` as the `backstage_nav` backend. The rest of the `GUIProxy` surfaces continue to use their default COM implementations.
 
 ```python
-from ezxl import ExcelApp, GUIProxy
-from ezxl.gui.pywinauto import PywinautoRibbonBackend
+from ezxl import ExcelApp, GUIProxy, COMBackstageBackend
+from ezxl.gui.pywinauto import PywinautoBackstageBackend
 
 with ExcelApp(mode="attach") as xl:
-    # Bind the pywinauto backend to the exact Excel window managed by xl.
+    # PywinautoBackstageBackend targets the exact Excel window managed by xl.
     # Passing hwnd prevents the backend from attaching to a different
     # Excel window if multiple instances are running simultaneously.
-    ribbon_backend = PywinautoRibbonBackend(hwnd=xl.hwnd)
+    # locale must match the display language of the installed Excel.
+    backstage_nav = PywinautoBackstageBackend(hwnd=xl.hwnd, locale="fr")
 
-    gui = GUIProxy(xl, ribbon=ribbon_backend)
+    gui = GUIProxy(xl, backstage_nav=backstage_nav)
 
-    # Execute via pywinauto keyboard shortcut (locale-independent)
-    gui.ribbon.execute("FileSave")    # sends Ctrl+S
-    gui.ribbon.execute("Bold")        # sends Ctrl+B
+    # File operations via COM — focus-independent, locale-independent
+    gui.backstage.save()
 
-    # menu and dialog still use the default COM backends
-    bars = gui.menu.list_bars()
-    print(f"CommandBars: {bars[:3]}")
+    gui.backstage.save_as(
+        path="C:/reports/budget_2026_final.xlsx",
+        # FileFormat is inferred from the extension when omitted
+    )
+
+    # Backstage panel navigation via UIA
+    gui.backstage_nav.open_options()       # opens Excel Options dialog
+    gui.backstage_nav.open_save_as_panel() # navigates to the Save As panel
+
+    # ribbon, menu, and dialog still use the default COM backends
+    can_undo = xl.gui.ribbon.is_enabled("Undo")
+    print(f"Undo available: {can_undo}")
 ```
 
-!!! warning "Limited MSO support"
-`PywinautoRibbonBackend` maps MSO identifiers to keyboard shortcuts. Only a curated set is supported: `FileSave`, `Copy`, `Paste`, `Bold`, `Italic`, `Underline`, `Undo`, `Redo`. Passing an unmapped identifier raises `GUIOperationError`. State queries (`is_enabled`, `is_pressed`, `is_visible`) raise `NotImplementedError` — use `RibbonProxy` for those.
+!!! note "locale must match the installed Excel language"
+`PywinautoBackstageBackend` locates Backstage UI elements by their display label. Pass the two-letter locale code (`"en"`, `"fr"`, `"de"`, etc.) that matches the language pack of the Excel installation on the target machine. A mismatch will cause element lookup to fail with `GUIOperationError`.
+
+!!! tip "backstage_nav is None by default"
+If no `backstage_nav` backend is injected, `gui.backstage_nav` is `None`. Code that accesses `gui.backstage_nav` without checking for `None` first will raise `AttributeError`. Guard with `if gui.backstage_nav is not None:` when the backend is conditionally available.
 
 ---
 

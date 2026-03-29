@@ -79,7 +79,7 @@ members: - address - values
 ::: ezxl.GUIProxy
 options:
 show_source: false
-members: - **init** - ribbon - menu - dialog - send_keys
+members: - **init** - ribbon - menu - dialog - backstage - backstage_nav - send_keys
 
 ---
 
@@ -105,6 +105,16 @@ options:
 show_source: false
 members: - send_keys
 
+::: ezxl.AbstractBackstageFileOps
+options:
+show_source: false
+members: - save - save_as - open_file - close_workbook
+
+::: ezxl.AbstractBackstageNavigator
+options:
+show_source: false
+members: - open_options - open_save_as_panel - open_file - close_workbook
+
 ---
 
 ## GUI backends — COM (win32com)
@@ -124,29 +134,24 @@ options:
 show_source: false
 members: - get_file_open - get_file_save - alert
 
+::: ezxl.COMBackstageBackend
+options:
+show_source: false
+members: - save - save_as - open_file - close_workbook
+
 ---
 
 ## GUI backends — pywinauto
-
-::: ezxl.PywinautoRibbonBackend
-options:
-show_source: false
-members: - **init** - execute - is_enabled - is_pressed - is_visible
-
-::: ezxl.PywinautoMenuBackend
-options:
-show_source: false
-members: - click - list_bars - list_controls
-
-::: ezxl.PywinautoDialogBackend
-options:
-show_source: false
-members: - get_file_open - get_file_save - alert
 
 ::: ezxl.PywinautoKeysBackend
 options:
 show_source: false
 members: - send_keys
+
+::: ezxl.PywinautoBackstageBackend
+options:
+show_source: false
+members: - **init** - open_options - open_save_as_panel - open_file - close_workbook
 
 ---
 

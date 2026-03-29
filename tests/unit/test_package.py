@@ -102,6 +102,7 @@ def test_should_export_all_gui_protocol_symbols() -> None:
         "AbstractMenuBackend",
         "AbstractDialogBackend",
         "AbstractKeysBackend",
+        "AbstractBackstageBackend",
     ]
     for name in protocol_symbols:
         assert hasattr(ezxl, name), f"ezxl.{name} not found"
@@ -125,10 +126,8 @@ def test_should_export_all_gui_pywinauto_symbols() -> None:
     import ezxl
 
     pywinauto_symbols = [
-        "PywinautoRibbonBackend",
-        "PywinautoMenuBackend",
-        "PywinautoDialogBackend",
         "PywinautoKeysBackend",
+        "PywinautoBackstageBackend",
     ]
     for name in pywinauto_symbols:
         assert hasattr(ezxl, name), f"ezxl.{name} not found"
