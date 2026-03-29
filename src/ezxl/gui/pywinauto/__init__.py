@@ -6,20 +6,17 @@
 """
 EzXl pywinauto GUI backends — UI Automation alternatives to COM backends.
 
-Provides four backend classes that implement the GUI protocol interfaces
+Provides two backend classes that implement the GUI protocol interfaces
 defined in :mod:`ezxl.gui._protocols` using ``pywinauto`` UI Automation
 instead of ``win32com``.  These backends operate at the OS UI level and
 do **not** require a COM connection.
 
 Backends
 --------
-- :class:`PywinautoRibbonBackend` — Ribbon command execution by clicking
-  UI Automation controls.
-- :class:`PywinautoMenuBackend` — Menu bar traversal by caption-path clicks.
-- :class:`PywinautoDialogBackend` — File pickers via keyboard shortcuts +
-  Windows common dialog interaction.  Alert via Win32 ``MessageBoxW``.
 - :class:`PywinautoKeysBackend` — Keystroke injection via
   ``pywinauto.keyboard.send_keys``.
+- :class:`PywinautoBackstageBackend` — Excel Backstage (File tab) navigation
+  via Alt-sequences and UIA.  Extensible via ``_ELEMENTS`` class attribute.
 
 Dependency
 ----------
@@ -34,17 +31,15 @@ will raise :exc:`ImportError` with an install hint if pywinauto is absent.
 Usage::
 
     from ezxl import ExcelApp, GUIProxy
-    from ezxl.gui.pywinauto import PywinautoRibbonBackend, PywinautoKeysBackend
+    from ezxl.gui.pywinauto import PywinautoKeysBackend
 
     with ExcelApp(mode="attach") as xl:
         gui = GUIProxy(
             xl,
-            ribbon=PywinautoRibbonBackend(),
             keys=PywinautoKeysBackend(),
         )
-        gui.ribbon.execute("FileSave")   # via pywinauto UI click
         gui.send_keys("^{HOME}")         # via pywinauto keyboard
-        # COM backends still used for menu and dialog (not overridden):
+        # COM backends still used for ribbon, menu and dialog (not overridden):
         gui.menu.list_bars()
 """
 
@@ -54,14 +49,10 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Local imports
-from ._dialog import PywinautoDialogBackend
+from ._backstage import PywinautoBackstageBackend
 from ._keys import PywinautoKeysBackend
-from ._menu import PywinautoMenuBackend
-from ._ribbon import PywinautoRibbonBackend
 
 __all__ = [
-    "PywinautoRibbonBackend",
-    "PywinautoMenuBackend",
-    "PywinautoDialogBackend",
     "PywinautoKeysBackend",
+    "PywinautoBackstageBackend",
 ]

@@ -18,21 +18,20 @@ src/ezxl/
 │   └── _sheet.py        # SheetProxy, CellProxy, RangeProxy
 ├── gui/
 │   ├── __init__.py
-│   ├── _protocols.py    # ABCs: the four GUI backend contracts (ports)
-│   ├── _gui_proxy.py    # GUIProxy — unified GUI facade
+│   ├── _protocols.py    # ABCs: six GUI backend contracts (ports)
+│   ├── _gui_proxy.py    # GUIProxy — unified GUI facade + _COMKeysBackend (internal)
 │   ├── win32com/
 │   │   ├── __init__.py
 │   │   ├── _ribbon.py   # RibbonProxy (COM adapter)
 │   │   ├── _menu.py     # MenuProxy (COM adapter)
 │   │   ├── _dialog.py   # DialogProxy (COM adapter)
-│   │   └── _keys.py     # _COMKeysBackend (COM adapter, internal)
+│   │   └── _backstage.py  # COMBackstageBackend (COM adapter)
 │   └── pywinauto/
 │       ├── __init__.py
-│       ├── _ribbon.py   # PywinautoRibbonBackend (UIA adapter)
-│       ├── _menu.py     # PywinautoMenuBackend (UIA adapter)
-│       ├── _dialog.py   # PywinautoDialogBackend (UIA adapter)
-│       ├── _keys.py     # PywinautoKeysBackend (UIA adapter)
-│       └── _connect.py  # Window handle resolution helper
+│       ├── _backstage.py  # PywinautoBackstageBackend (UIA adapter)
+│       ├── _keys.py       # PywinautoKeysBackend (UIA adapter)
+│       ├── _connect.py    # Window handle resolution helper
+│       └── _registry.py  # UI element registry (internal)
 ├── io/
 │   ├── __init__.py
 │   ├── _converters.py   # read_excel, read_csv, xlsx_to_csv, csv_to_xlsx, read_sheet
@@ -67,13 +66,12 @@ graph TD
             RIB[gui.win32com._ribbon]
             MEN[gui.win32com._menu]
             DLG[gui.win32com._dialog]
-            KEYS[gui.win32com._keys]
+            BACK[gui.win32com._backstage]
         end
         subgraph pywinauto backends
-            PWRIB[gui.pywinauto._ribbon]
-            PWMEN[gui.pywinauto._menu]
-            PWDLG[gui.pywinauto._dialog]
             PWKEYS[gui.pywinauto._keys]
+            PWBACK[gui.pywinauto._backstage]
+            PWREG[gui.pywinauto._registry]
         end
     end
 
@@ -88,8 +86,8 @@ graph TD
 
     EXC[exceptions]
 
-    INIT --> EA & WB & SH & GP & PROTO & RIB & MEN & DLG
-    INIT --> PWRIB & PWMEN & PWDLG & PWKEYS
+    INIT --> EA & WB & SH & GP & PROTO & RIB & MEN & DLG & BACK
+    INIT --> PWKEYS & PWBACK
     INIT --> CONV & FMT & EXC
 
     EA --> EXC
@@ -100,7 +98,7 @@ graph TD
     SH --> CU
 
     GP --> PROTO
-    GP --> RIB & MEN & DLG & KEYS
+    GP --> RIB & MEN & DLG & BACK
 
     RIB --> PROTO
     RIB --> EXC
@@ -111,16 +109,13 @@ graph TD
     DLG --> PROTO
     DLG --> EXC
     DLG --> CU
-    KEYS --> PROTO
-    KEYS --> CU
+    BACK --> PROTO
+    BACK --> EXC
+    BACK --> CU
 
-    PWRIB --> PROTO
-    PWRIB --> EXC
-    PWMEN --> PROTO
-    PWMEN --> EXC
-    PWDLG --> PROTO
-    PWDLG --> EXC
     PWKEYS --> PROTO
+    PWBACK --> PROTO
+    PWBACK --> EXC
 
     CONV --> EXC
     FMT --> EXC
@@ -154,16 +149,22 @@ Each level holds a reference to its parent (not to the raw COM object). When a C
 
 ### GUI layer: Ports and Adapters
 
-The `gui` package implements a Ports and Adapters pattern scoped to the GUI interaction surface. The four ABC classes in `_protocols.py` are the ports:
+The `gui` package implements a Ports and Adapters pattern scoped to the GUI interaction surface. The six ABC classes in `_protocols.py` are the ports:
 
 - `AbstractRibbonBackend`
 - `AbstractMenuBackend`
 - `AbstractDialogBackend`
 - `AbstractKeysBackend`
+- `AbstractBackstageFileOps` — Backstage file operations via COM (focus-independent, locale-independent)
+- `AbstractBackstageNavigator` — Backstage UIA navigation (for `open_options`, `open_save_as_panel`, and other panel traversals)
 
 The COM backends in `gui/win32com/` and the pywinauto backends in `gui/pywinauto/` are the adapters. `GUIProxy` is the facade: it accepts any conforming implementation for each surface at construction time, defaulting to the COM adapter when none is provided.
 
-This design was adopted only for the GUI layer because it is the only layer where backend swappability delivers real value — some deployment environments block COM GUI calls but permit pywinauto UI Automation, or require a mix of the two. The `core` and `io` layers have no equivalent swappability need and do not use this pattern.
+The COM and pywinauto Backstage backends are not interchangeable alternatives — they are complements that cover different capabilities. `COMBackstageBackend` implements `AbstractBackstageFileOps` and handles file operations (`save`, `save_as`, `open_file`, `close_workbook`) entirely through the Excel COM object model: no window focus required, no locale sensitivity. `PywinautoBackstageBackend` implements `AbstractBackstageNavigator` and handles panel navigation that has no COM equivalent (`open_options`, `open_save_as_panel`), driving the Backstage UI via UI Automation with an Alt-sequence fallback.
+
+`GUIProxy` surfaces both through separate attributes: `gui.backstage` always holds a `COMBackstageBackend` (or any `AbstractBackstageFileOps` injected at construction time); `gui.backstage_nav` holds an `AbstractBackstageNavigator` instance, or `None` when no UIA navigator has been injected. Callers that only perform file operations never need to supply a pywinauto dependency.
+
+This design was adopted only for the GUI layer because it is the only layer where backend swappability and composition deliver real value — some deployment environments block COM GUI calls but permit pywinauto UI Automation, or require a mix of the two. The `core` and `io` layers have no equivalent swappability need and do not use this pattern.
 
 !!! note "Project-level hexagonal architecture was evaluated and rejected"
 Full hexagonal architecture at the project level would require renaming `core/` to `domain/`, introducing application-level port interfaces, and routing all entry points through those ports. For a library whose primary abstraction IS the infrastructure (COM dispatch, Win32 handles), this adds indirection with no protective benefit. The GUI-level Ports and Adapters pattern is the right scope. See `.github/instructions/README.md` for the full decision record.

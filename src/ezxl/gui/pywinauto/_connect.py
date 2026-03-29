@@ -26,7 +26,6 @@ from __future__ import annotations
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
 import logging
-from typing import Any
 
 # Local imports
 from ...exceptions import GUIOperationError
@@ -36,7 +35,10 @@ from ...exceptions import GUIOperationError
 # ///////////////////////////////////////////////////////////////
 
 try:
-    from pywinauto.application import Application  # type: ignore[import-untyped]
+    from pywinauto.application import (  # type: ignore[import-untyped]
+        Application,
+        WindowSpecification,
+    )
 except ImportError as _pwn_import_error:
     raise ImportError(
         "pywinauto is required for the pywinauto GUI backends but is not installed. "
@@ -58,7 +60,7 @@ _EXCEL_TITLE_RE: str = r".*- Microsoft Excel$"
 # ///////////////////////////////////////////////////////////////
 
 
-def _get_excel_window(hwnd: int | None = None) -> Any:  # type: ignore[reportUnusedFunction]  -- imported by _ribbon, _menu, _dialog
+def _get_excel_window(hwnd: int | None = None) -> WindowSpecification:  # type: ignore[reportUnusedFunction]  -- imported by _ribbon, _menu, _dialog
     """Return a pywinauto ``WindowSpecification`` for the Excel main window.
 
     Connects to a running Excel instance using the ``uia`` backend, which
@@ -76,9 +78,8 @@ def _get_excel_window(hwnd: int | None = None) -> Any:  # type: ignore[reportUnu
             to auto-detect the first visible Excel instance.
 
     Returns:
-        Any: A ``pywinauto`` ``WindowSpecification`` representing the Excel
-        main window.  The exact return type is ``pywinauto.application.WindowSpecification``
-        but is typed as ``Any`` because pywinauto ships only partial stubs.
+        WindowSpecification: A ``pywinauto`` ``WindowSpecification``
+        representing the Excel main window.
 
     Raises:
         GUIOperationError: If no Excel window can be found, or if the
@@ -108,7 +109,7 @@ def _get_excel_window(hwnd: int | None = None) -> Any:  # type: ignore[reportUnu
         app = Application(backend="uia")
         if hwnd is not None:
             app.connect(handle=hwnd)
-            window: Any = app.window(handle=hwnd)
+            window: WindowSpecification = app.window(handle=hwnd)
         else:
             app.connect(title_re=_EXCEL_TITLE_RE)
             window = app.window(title_re=_EXCEL_TITLE_RE)

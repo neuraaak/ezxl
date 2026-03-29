@@ -78,6 +78,9 @@ from .exceptions import (
     WorkbookNotFoundError,
 )
 from .gui._protocols import (
+    AbstractBackstageBackend,
+    AbstractBackstageFileOps,
+    AbstractBackstageNavigator,
     AbstractDialogBackend,
     AbstractKeysBackend,
     AbstractMenuBackend,
@@ -96,14 +99,14 @@ if sys.platform == "win32":
     from .core._workbook import WorkbookProxy
     from .gui._gui_proxy import GUIProxy
     from .gui.pywinauto import (
-        PywinautoDialogBackend,
+        PywinautoBackstageBackend,
         PywinautoKeysBackend,
-        PywinautoMenuBackend,
-        PywinautoRibbonBackend,
     )
+    from .gui.win32com._backstage import COMBackstageBackend
     from .gui.win32com._dialog import DialogProxy
     from .gui.win32com._menu import MenuProxy
     from .gui.win32com._ribbon import RibbonProxy
+
 
 __all__ = [
     # Exceptions
@@ -121,6 +124,10 @@ __all__ = [
     "AbstractMenuBackend",
     "AbstractDialogBackend",
     "AbstractKeysBackend",
+    "AbstractBackstageFileOps",
+    "AbstractBackstageNavigator",
+    # Compatibility alias — kept for existing imports
+    "AbstractBackstageBackend",
     # Closed-file utilities
     "ExcelFormatter",
     "read_excel",
@@ -140,12 +147,11 @@ if sys.platform == "win32":
         "RangeProxy",
         # GUI interaction
         "GUIProxy",
+        "COMBackstageBackend",
         "RibbonProxy",
         "MenuProxy",
         "DialogProxy",
         # GUI — pywinauto backends
-        "PywinautoRibbonBackend",
-        "PywinautoMenuBackend",
-        "PywinautoDialogBackend",
         "PywinautoKeysBackend",
+        "PywinautoBackstageBackend",
     ]

@@ -6,7 +6,7 @@
 """
 Abstract backend contracts for the ``ezxl.gui`` layer.
 
-Defines four :class:`abc.ABC` base classes that each GUI backend must
+Defines six :class:`abc.ABC` base classes that each GUI backend must
 implement. Keeping these contracts in a separate module that imports
 **only** from the standard library prevents circular imports — proxy
 modules may freely import these ABCs without pulling in any ``ezxl``
@@ -21,6 +21,18 @@ Backends
 - :class:`AbstractDialogBackend` — File-open, file-save, and message-box
   dialogs.
 - :class:`AbstractKeysBackend` — Keystroke injection (``SendKeys``).
+- :class:`AbstractBackstageFileOps` — Excel Backstage file operations
+  (save, save_as, open_file, close_workbook) via COM.
+- :class:`AbstractBackstageNavigator` — Excel Backstage visual navigation
+  (open_options, open_save_as_panel, open_file, close_workbook) via UIA.
+
+Compatibility alias
+-------------------
+:data:`AbstractBackstageBackend` is kept as a type alias for
+:class:`AbstractBackstageFileOps` to preserve existing imports and
+public-API declarations.  New code should reference
+:class:`AbstractBackstageFileOps` or :class:`AbstractBackstageNavigator`
+directly.
 
 Usage::
 
@@ -295,3 +307,150 @@ class AbstractKeysBackend(ABC):
             COMOperationError: If the keystroke injection call fails.
         """
         ...
+
+
+class AbstractBackstageFileOps(ABC):
+    """Contract for Excel Backstage file operations via COM.
+
+    Covers the four operations that the COM object model executes
+    reliably, focus-independently, and locale-independently:
+    ``save``, ``save_as``, ``open_file``, and ``close_workbook``.
+
+    This contract is implemented by
+    :class:`~ezxl.gui.win32com.COMBackstageBackend`.  Inject it into
+    :class:`~ezxl.gui.GUIProxy` via the *backstage* parameter::
+
+        gui = GUIProxy(xl, backstage=COMBackstageBackend(xl))
+    """
+
+    # ///////////////////////////////////////////////////////////////
+    # ABSTRACT METHODS
+    # ///////////////////////////////////////////////////////////////
+
+    @abstractmethod
+    def save(self) -> None:
+        """Save the active workbook.
+
+        Raises:
+            ExcelThreadViolationError: If called from the wrong thread.
+            WorkbookNotFoundError: If no workbook is currently open.
+            GUIOperationError: If the action cannot be completed.
+        """
+        ...
+
+    @abstractmethod
+    def save_as(self, path: str | None = None) -> None:
+        """Save the active workbook under a new path, or open the Save As dialog.
+
+        Args:
+            path: Absolute path for the new file, including extension.
+                If ``None``, the built-in Save As dialog is displayed for
+                manual path selection.
+
+        Raises:
+            ExcelThreadViolationError: If called from the wrong thread.
+            WorkbookNotFoundError: If no workbook is currently open.
+            GUIOperationError: If the panel cannot be opened or path entry
+                fails.
+        """
+        ...
+
+    @abstractmethod
+    def open_file(self) -> None:
+        """Show the built-in Excel Open dialog.
+
+        Raises:
+            ExcelThreadViolationError: If called from the wrong thread.
+            GUIOperationError: If the dialog cannot be opened.
+        """
+        ...
+
+    @abstractmethod
+    def close_workbook(self) -> None:
+        """Close the active workbook without saving.
+
+        Raises:
+            ExcelThreadViolationError: If called from the wrong thread.
+            WorkbookNotFoundError: If no workbook is currently open.
+            GUIOperationError: If the action cannot be completed.
+        """
+        ...
+
+
+class AbstractBackstageNavigator(ABC):
+    """Contract for Excel Backstage visual navigation via UI Automation.
+
+    Covers operations that require UIA-level interaction with the
+    Backstage overlay: navigating to the Options panel, opening the
+    Save As panel without confirming, and UIA-driven open/close actions.
+
+    This contract is implemented by
+    :class:`~ezxl.gui.pywinauto.PywinautoBackstageBackend`.  Inject it
+    into :class:`~ezxl.gui.GUIProxy` via the *backstage_nav* parameter::
+
+        gui = GUIProxy(
+            xl,
+            backstage=COMBackstageBackend(xl),
+            backstage_nav=PywinautoBackstageBackend(hwnd=xl.hwnd, locale="fr"),
+        )
+
+    Note:
+        ``backstage_nav`` is optional — :class:`~ezxl.gui.GUIProxy` defaults
+        it to ``None``.  Access it via ``xl.gui.backstage_nav``; guard with
+        an ``is not None`` check before calling if it may be absent.
+    """
+
+    # ///////////////////////////////////////////////////////////////
+    # ABSTRACT METHODS
+    # ///////////////////////////////////////////////////////////////
+
+    @abstractmethod
+    def open_options(self) -> None:
+        """Navigate to the Excel Options panel via the Backstage.
+
+        Raises:
+            GUIOperationError: If the Options panel cannot be reached.
+        """
+        ...
+
+    @abstractmethod
+    def open_save_as_panel(self) -> None:
+        """Open the Save As panel in the Backstage without confirming a save.
+
+        Clicks the ``"Enregistrer sous"`` (or locale equivalent) ListItem
+        and leaves the panel open for manual interaction.
+
+        Raises:
+            GUIOperationError: If the panel cannot be reached.
+        """
+        ...
+
+    @abstractmethod
+    def open_file(self) -> None:
+        """Open the Open panel via the Backstage.
+
+        Raises:
+            GUIOperationError: If the panel cannot be reached.
+        """
+        ...
+
+    @abstractmethod
+    def close_workbook(self) -> None:
+        """Close the active workbook via a Backstage UIA click.
+
+        Raises:
+            GUIOperationError: If the action cannot be completed.
+        """
+        ...
+
+
+# ///////////////////////////////////////////////////////////////
+# COMPATIBILITY ALIAS
+# ///////////////////////////////////////////////////////////////
+
+#: Deprecated alias for :class:`AbstractBackstageFileOps`.
+#:
+#: Kept so that existing code importing ``AbstractBackstageBackend`` from
+#: ``ezxl`` or ``ezxl.gui._protocols`` continues to work without change.
+#: New code should reference :class:`AbstractBackstageFileOps` directly.
+AbstractBackstageBackend = AbstractBackstageFileOps
