@@ -49,6 +49,8 @@ printer = get_printer()
 def read_excel(
     source: str | Path,
     sheet: str | None = None,
+    *pl_args: Any,
+    **pl_kwargs: Any,
 ) -> pl.DataFrame:
     """Read an Excel workbook sheet into a polars DataFrame.
 
@@ -59,6 +61,10 @@ def read_excel(
         source: Path to the source ``.xlsx`` / ``.xlsm`` file.
         sheet: Worksheet name to read.  Pass ``None`` to read the first
             sheet (polars default when ``sheet_name`` is omitted).
+        *pl_args: Positional arguments forwarded to ``polars.read_excel``.
+        **pl_kwargs: Keyword arguments forwarded to ``polars.read_excel``.
+            If ``sheet`` is provided and ``sheet_name`` is not set, this
+            function injects ``sheet_name=sheet`` for compatibility.
 
     Returns:
         pl.DataFrame: Contents of the requested sheet as a polars
@@ -80,7 +86,10 @@ def read_excel(
 
     logger.debug("read_excel: %s (sheet=%r)", source_path, sheet)
 
-    df: pl.DataFrame = pl.read_excel(source_path, sheet_name=sheet)
+    if sheet is not None and "sheet_name" not in pl_kwargs:
+        pl_kwargs["sheet_name"] = sheet
+
+    df: pl.DataFrame = pl.read_excel(source_path, *pl_args, **pl_kwargs)
 
     logger.debug("read_excel: read %d rows from '%s'.", len(df), source_path)
     return df
@@ -90,6 +99,8 @@ def read_csv(
     source: str | Path,
     separator: str = ",",
     encoding: str = "utf-8",
+    *pl_args: Any,
+    **pl_kwargs: Any,
 ) -> pl.DataFrame:
     """Read a CSV file into a polars DataFrame.
 
@@ -99,6 +110,10 @@ def read_csv(
             (standard CSV).  Use ``"\\t"`` for TSV files.
         encoding: File encoding passed through to polars.  Defaults to
             ``"utf-8"``.
+        *pl_args: Positional arguments forwarded to ``polars.read_csv``.
+        **pl_kwargs: Keyword arguments forwarded to ``polars.read_csv``.
+            ``separator`` and ``encoding`` are applied only when these
+            keys are not already present in ``pl_kwargs``.
 
     Returns:
         pl.DataFrame: Parsed contents of the CSV file.
@@ -117,11 +132,10 @@ def read_csv(
 
     logger.debug("read_csv: %s (sep=%r, enc=%r)", source_path, separator, encoding)
 
-    df: pl.DataFrame = pl.read_csv(
-        source_path,
-        separator=separator,
-        encoding=encoding,
-    )
+    pl_kwargs.setdefault("separator", separator)
+    pl_kwargs.setdefault("encoding", encoding)
+
+    df: pl.DataFrame = pl.read_csv(source_path, *pl_args, **pl_kwargs)
 
     logger.debug("read_csv: read %d rows from '%s'.", len(df), source_path)
     return df
@@ -132,6 +146,8 @@ def xlsx_to_csv(
     dest: str | Path,
     sheet: str | None = None,
     separator: str = ",",
+    *pl_write_args: Any,
+    **pl_write_kwargs: Any,
 ) -> None:
     """Convert an Excel workbook sheet to a CSV file using polars.
 
@@ -148,6 +164,11 @@ def xlsx_to_csv(
             first sheet.
         separator: Column delimiter for the CSV output.  Defaults to
             ``","`` (standard CSV).
+        *pl_write_args: Positional arguments forwarded to
+            ``DataFrame.write_csv``.
+        **pl_write_kwargs: Keyword arguments forwarded to
+            ``DataFrame.write_csv``. ``separator`` is only applied when
+            it is not already present.
 
     Raises:
         FileNotFoundError: If ``source`` does not exist.
@@ -167,7 +188,9 @@ def xlsx_to_csv(
     )
 
     df = read_excel(source, sheet=sheet)
-    df.write_csv(dest_path, separator=separator)
+
+    pl_write_kwargs.setdefault("separator", separator)
+    df.write_csv(dest_path, *pl_write_args, **pl_write_kwargs)
 
     logger.debug("xlsx_to_csv: completed — wrote %s", dest_path)
     printer.success(f"xlsx_to_csv: conversion complete — {dest_path}")
@@ -177,6 +200,8 @@ def csv_to_xlsx(
     source: str | Path,
     dest: str | Path,
     sheet_name: str = "Sheet1",
+    *pl_write_args: Any,
+    **pl_write_kwargs: Any,
 ) -> None:
     """Convert a CSV file to an Excel workbook using polars.
 
@@ -191,6 +216,11 @@ def csv_to_xlsx(
             exist.
         sheet_name: Name of the worksheet to create in the output
             workbook.  Defaults to ``"Sheet1"``.
+        *pl_write_args: Positional arguments forwarded to
+            ``DataFrame.write_excel``.
+        **pl_write_kwargs: Keyword arguments forwarded to
+            ``DataFrame.write_excel``. ``worksheet`` is only applied when
+            it is not already present.
 
     Raises:
         FileNotFoundError: If ``source`` does not exist.
@@ -208,7 +238,9 @@ def csv_to_xlsx(
     )
 
     df = read_csv(source)
-    df.write_excel(dest_path, worksheet=sheet_name)
+
+    pl_write_kwargs.setdefault("worksheet", sheet_name)
+    df.write_excel(dest_path, *pl_write_args, **pl_write_kwargs)
 
     logger.debug("csv_to_xlsx: completed — wrote %s", dest_path)
     printer.success(f"csv_to_xlsx: conversion complete — {dest_path}")
@@ -217,6 +249,8 @@ def csv_to_xlsx(
 def read_sheet(
     source: str | Path,
     sheet: str | None = None,
+    *pl_args: Any,
+    **pl_kwargs: Any,
 ) -> list[list[Any]]:
     """Read a worksheet into a row-major list of lists (compatibility shim).
 
@@ -232,6 +266,8 @@ def read_sheet(
         source: Path to the source ``.xlsx`` / ``.xlsm`` file.
         sheet: Worksheet name to read.  Pass ``None`` to use the first
             sheet.
+        *pl_args: Positional arguments forwarded to ``read_excel``.
+        **pl_kwargs: Keyword arguments forwarded to ``read_excel``.
 
     Returns:
         list[list[Any]]: Row-major 2D list of cell values.  The first
@@ -248,7 +284,7 @@ def read_sheet(
     """
     logger.debug("read_sheet: %s (sheet=%r) — delegating to read_excel", source, sheet)
 
-    df = read_excel(source, sheet=sheet)
+    df = read_excel(source, sheet, *pl_args, **pl_kwargs)
 
     # Prepend column names as the first row to preserve the legacy contract
     # where callers expected headers in row 0.
