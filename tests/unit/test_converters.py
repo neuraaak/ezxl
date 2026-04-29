@@ -57,6 +57,31 @@ def test_should_read_excel_raises_on_missing_file(temp_dir: Path) -> None:
         read_excel(missing)
 
 
+@pytest.mark.unit
+def test_should_read_excel_forward_polars_args_kwargs(
+    sample_xlsx: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    """Verify that read_excel forwards native polars args/kwargs."""
+    captured: dict[str, object] = {}
+
+    def fake_read_excel(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+        captured["path"] = path
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return pl.DataFrame({"col_a": [1]})
+
+    monkeypatch.setattr("ezxl.io._converters.pl.read_excel", fake_read_excel)
+
+    df = read_excel(sample_xlsx, "Sheet1", "engine_marker", infer_schema_length=123)
+
+    assert isinstance(df, pl.DataFrame)
+    assert captured["args"] == ("engine_marker",)
+    assert captured["kwargs"] == {
+        "infer_schema_length": 123,
+        "sheet_name": "Sheet1",
+    }
+
+
 # ///////////////////////////////////////////////////////////////
 # TESTS — read_csv
 # ///////////////////////////////////////////////////////////////
@@ -88,6 +113,32 @@ def test_should_read_csv_raises_on_missing_file(temp_dir: Path) -> None:
         read_csv(missing)
 
 
+@pytest.mark.unit
+def test_should_read_csv_forward_polars_args_kwargs(
+    sample_csv: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    """Verify that read_csv forwards native polars args/kwargs."""
+    captured: dict[str, object] = {}
+
+    def fake_read_csv(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+        captured["path"] = path
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return pl.DataFrame({"col_a": [1]})
+
+    monkeypatch.setattr("ezxl.io._converters.pl.read_csv", fake_read_csv)
+
+    df = read_csv(sample_csv, ";", "latin1", "engine_marker", infer_schema_length=10)
+
+    assert isinstance(df, pl.DataFrame)
+    assert captured["args"] == ("engine_marker",)
+    assert captured["kwargs"] == {
+        "infer_schema_length": 10,
+        "separator": ";",
+        "encoding": "latin1",
+    }
+
+
 # ///////////////////////////////////////////////////////////////
 # TESTS — xlsx_to_csv
 # ///////////////////////////////////////////////////////////////
@@ -111,6 +162,33 @@ def test_should_xlsx_to_csv_creates_output_file(
     assert dest.stat().st_size > 0
 
 
+@pytest.mark.unit
+def test_should_xlsx_to_csv_forward_write_csv_args_kwargs(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Verify that xlsx_to_csv forwards args/kwargs to DataFrame.write_csv."""
+    captured: dict[str, object] = {}
+
+    class DummyDataFrame:
+        def write_csv(self, path, *args, **kwargs):  # type: ignore[no-untyped-def]
+            captured["path"] = path
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(
+        "ezxl.io._converters.read_excel",
+        lambda *_args, **_kwargs: DummyDataFrame(),
+    )
+
+    xlsx_to_csv(
+        "dummy.xlsx", "dummy.csv", None, ";", "engine_marker", quote_style="always"
+    )
+
+    assert captured["args"] == ("engine_marker",)
+    assert captured["kwargs"] == {
+        "quote_style": "always",
+        "separator": ";",
+    }
+
+
 # ///////////////////////////////////////////////////////////////
 # TESTS — csv_to_xlsx
 # ///////////////////////////////////////////////////////////////
@@ -132,3 +210,28 @@ def test_should_csv_to_xlsx_creates_output_file(
     csv_to_xlsx(sample_csv, dest)
     assert dest.exists()
     assert dest.stat().st_size > 0
+
+
+@pytest.mark.unit
+def test_should_csv_to_xlsx_forward_write_excel_args_kwargs(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Verify that csv_to_xlsx forwards args/kwargs to DataFrame.write_excel."""
+    captured: dict[str, object] = {}
+
+    class DummyDataFrame:
+        def write_excel(self, path, *args, **kwargs):  # type: ignore[no-untyped-def]
+            captured["path"] = path
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(
+        "ezxl.io._converters.read_csv",
+        lambda *_args, **_kwargs: DummyDataFrame(),
+    )
+
+    csv_to_xlsx("dummy.csv", "dummy.xlsx", "Data", "engine_marker", autofit=True)
+
+    assert captured["args"] == ("engine_marker",)
+    assert captured["kwargs"] == {
+        "autofit": True,
+        "worksheet": "Data",
+    }
