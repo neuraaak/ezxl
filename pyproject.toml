@@ -249,6 +249,7 @@ error-on-warning = false
 # via reportMissingImports = true and its bundled pywin32 stubs.
 [tool.ty.rules]
 unresolved-import = "ignore"
+unresolved-attribute = "ignore"
 
 # Pyright: Comprehensive type checking with detailed reporting
 [tool.pyright]
