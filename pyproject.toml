@@ -254,6 +254,8 @@ unresolved-attribute = "ignore"
 # Pyright: Comprehensive type checking with detailed reporting
 [tool.pyright]
 pythonVersion = "3.11"
+# Target Windows so that ctypes.windll and other platform-specific members resolve.
+pythonPlatform = "Windows"
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
@@ -271,10 +273,15 @@ exclude = [
     "examples",
     "**/node_modules",
     "**/.*",
+    # pywinauto has no type stubs and is absent on non-Windows runners.
+    # Attribute errors on its symbols are suppressed here; runtime coverage
+    # is provided by the excel-marked integration tests on Windows.
+    "src/ezxl/gui/pywinauto",
 ]
 
 # Reporting rules: flag missing imports and duplicates
 reportMissingImports = true
+reportMissingModuleSource = false
 reportMissingTypeStubs = false
 reportUnusedImport = true
 reportUnusedClass = true
