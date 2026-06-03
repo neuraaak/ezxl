@@ -244,6 +244,12 @@ respect-ignore-files = true
 output-format = "full"
 error-on-warning = false
 
+# win32com, pywintypes, and pywinauto are Windows-only (sys_platform == 'win32').
+# They are absent on Ubuntu CI runners — pyright covers missing-import detection
+# via reportMissingImports = true and its bundled pywin32 stubs.
+[tool.ty.rules]
+unresolved-import = "ignore"
+
 # Pyright: Comprehensive type checking with detailed reporting
 [tool.pyright]
 pythonVersion = "3.11"
