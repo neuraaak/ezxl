@@ -4,11 +4,12 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/ezxl?style=flat&logo=python&logoColor=white)](https://pypi.org/project/ezxl/)
 [![PyPI status](https://img.shields.io/pypi/status/ezxl?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxl/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat&logo=github&logoColor=white)](https://github.com/neuraaak/ezxl/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxl/publish-pypi.yml?style=flat&label=publish&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxl/actions/workflows/publish-pypi.yml)
-[![Docs](https://img.shields.io/badge/docs-Github%20Pages-blue?style=flat&logo=materialformkdocs&logoColor=white)](https://neuraaak.github.io/ezxl/)
+[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxl/ci.yml?style=flat&label=ci&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxl/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue?style=flat&logo=materialformkdocs&logoColor=white)](https://neuraaak.github.io/ezxl/)
 [![uv](https://img.shields.io/badge/package%20manager-uv-DE5FE9?style=flat&logo=uv&logoColor=white)](https://github.com/astral-sh/uv)
-[![linter](https://img.shields.io/badge/linter-ruff-orange?style=flat&logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
-[![type checker](https://img.shields.io/badge/type%20checker-ty-orange?style=flat&logo=astral&logoColor=white)](https://github.com/astral-sh/ty)
+[![linter](https://img.shields.io/badge/linter-ruff-D7FF64?style=flat&logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
+[![type checker](https://img.shields.io/badge/type%20checker-ty-261230?style=flat&logo=astral&logoColor=white)](https://github.com/astral-sh/ty)
+[![tests](https://img.shields.io/badge/tests-pytest-0A9EDC?style=flat&logo=pytest&logoColor=white)](https://github.com/pytest-dev/pytest)
 
 ![EzXl Logo](https://raw.githubusercontent.com/neuraaak/ezxl/refs/heads/main/docs/assets/logo-min.png)
 
@@ -71,11 +72,11 @@
 | Section                               | Description                                                        |
 | :------------------------------------ | :----------------------------------------------------------------- |
 | [Getting started](getting-started.md) | Install ezxl and complete a first workbook read in a few minutes.  |
+| [Concepts](concepts/index.md)         | Design rationale behind the package split and backend strategy.    |
 | [Guides](guides/index.md)             | Task-oriented recipes for installation, development, and testing.  |
 | [API reference](api/index.md)         | Curated overview of the public Python API.                         |
 | [CLI reference](cli/index.md)         | Command and option tables for the `ezxl` executable.               |
 | [Examples](examples/index.md)         | Copy-paste-ready snippets for common automation and I/O scenarios. |
-| [Concepts](concepts/index.md)         | Design rationale behind the package split and backend strategy.    |
 | [Architecture](architecture.md)       | Generated import graph and structural overview.                    |
 | [Coverage](coverage.md)               | Coverage report page generated from `coverage.xml`.                |
 | [Changelog](changelog.md)             | Release notes generated from Conventional Commits.                 |

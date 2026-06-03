@@ -2,247 +2,100 @@ name: Auto Tag
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   auto-tag:
     name: Create and Push Tags
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
-      new_tag: ${{ steps.version.outputs.found }}
+      tag_created: ${{ steps.create_tags.outputs.tag_created }}
       version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.create_tags.outputs.tag_name }}
-      latest_tag: ${{ steps.create_tags.outputs.latest_tag }}
-      package_name: ${{ steps.metadata.outputs.package_name }}
-      python_version: ${{ steps.metadata.outputs.python_version }}
-      major_version: ${{ steps.metadata.outputs.major_version }}
-      is_prerelease: ${{ steps.metadata.outputs.is_prerelease }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           fetch-depth: 0
 
       - name: Extract version from pyproject.toml
-        id: get_pyproject_version
-        run: |
-          if [ -f "pyproject.toml" ]; then
-            VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-            if [ -n "$VERSION" ]; then
-              echo "version=$VERSION" >> $GITHUB_OUTPUT
-              echo "source=pyproject.toml" >> $GITHUB_OUTPUT
-              echo "📋 Version found in pyproject.toml: $VERSION"
-              exit 0
-            fi
-          fi
-          echo "version=" >> $GITHUB_OUTPUT
-          echo "source=" >> $GITHUB_OUTPUT
-
-      - name: Extract version from src/_version.py
-        id: get_version_py
-        if: steps.get_pyproject_version.outputs.version == ''
-        run: |
-          VERSION_FILE=$(find src -name "_version.py" | head -1)
-          if [ -n "$VERSION_FILE" ]; then
-            VERSION=$(grep -E '^__version__\s*=\s*"' "$VERSION_FILE" | sed 's/.*"\([^"]*\)".*/\1/')
-            if [ -n "$VERSION" ]; then
-              echo "version=$VERSION" >> $GITHUB_OUTPUT
-              echo "source=$VERSION_FILE" >> $GITHUB_OUTPUT
-              echo "📋 Version found in $VERSION_FILE: $VERSION"
-              exit 0
-            fi
-          fi
-          echo "version=" >> $GITHUB_OUTPUT
-          echo "source=" >> $GITHUB_OUTPUT
-
-      - name: Determine final version
         id: version
         run: |
-          VERSION="${{ steps.get_pyproject_version.outputs.version }}"
-          SOURCE="${{ steps.get_pyproject_version.outputs.source }}"
-
+          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
           if [ -z "$VERSION" ]; then
-            VERSION="${{ steps.get_version_py.outputs.version }}"
-            SOURCE="${{ steps.get_version_py.outputs.source }}"
+            echo "::error::No version found in pyproject.toml"
+            exit 1
           fi
-
-          if [ -z "$VERSION" ]; then
-            echo "→ [AUTO-TAG] No version found in pyproject.toml or src/_version.py"
-            echo "found=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "source=$SOURCE" >> $GITHUB_OUTPUT
-          echo "found=true" >> $GITHUB_OUTPUT
-          echo "✅ Final version: $VERSION (from $SOURCE)"
-
-      - name: Extract project metadata
-        id: metadata
-        if: steps.version.outputs.found == 'true'
-        run: |
-          # Package name from pyproject.toml [project] name
-          PACKAGE_NAME=$(grep -E '^name\s*=' pyproject.toml | head -1 | sed 's/.*=\s*"\([^"]*\)".*/\1/')
-          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          echo "📦 Package name: $PACKAGE_NAME"
-
-          # Python version from requires-python (e.g. ">=3.11" → "3.11")
-          PYTHON_VERSION=$(grep -E '^requires-python' pyproject.toml | head -1 \
-            | sed 's/.*>=\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/')
-          [ -z "$PYTHON_VERSION" ] && PYTHON_VERSION="3.11"
-          echo "python_version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
-          echo "🐍 Python version: $PYTHON_VERSION"
-
-          # Major version (v1.2.3 → 1)
-          VERSION="${{ steps.version.outputs.version }}"
-          MAJOR_VERSION=$(echo "$VERSION" | sed 's/^\([0-9]*\)\..*/\1/')
-          echo "major_version=$MAJOR_VERSION" >> $GITHUB_OUTPUT
-          echo "🔢 Major version: $MAJOR_VERSION"
-
-          # Pre-release detection (alpha / beta / rc / dev / a0 / b1 …)
-          echo "$VERSION" | grep -qE '(alpha|beta|rc|dev|a[0-9]+|b[0-9]+)' \
-            && IS_PRERELEASE="true" || IS_PRERELEASE="false"
-          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
-          echo "🏷️  Pre-release: $IS_PRERELEASE"
+          echo "Version: $VERSION"
 
       - name: Create and push tags
         id: create_tags
-        if: steps.version.outputs.found == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG_NAME="v$VERSION"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          LATEST_TAG="v${MAJOR}-latest"
 
-          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Create or update main version tag
+          TAG_CREATED="false"
+
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            # Check if tag already points to HEAD
             TAG_SHA=$(git rev-parse "$TAG_NAME")
             HEAD_SHA=$(git rev-parse HEAD)
             if [ "$TAG_SHA" = "$HEAD_SHA" ]; then
-              echo "✓ [AUTO-TAG] Tag $TAG_NAME already points to HEAD, no update needed"
+              echo "Tag $TAG_NAME already points to HEAD — nothing to do"
             else
+              # Version unchanged (chore/docs commit): move the tag to HEAD
+              # without triggering a publish (TAG_CREATED stays false).
               git tag -f "$TAG_NAME"
-              echo "✓ [AUTO-TAG] Updated: $TAG_NAME"
+              git tag -f "$LATEST_TAG"
+              git push origin --force "$TAG_NAME"
+              git push origin --force "$LATEST_TAG"
+              echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (no publish — version unchanged)"
             fi
           else
             git tag "$TAG_NAME"
-            echo "✓ [AUTO-TAG] Created: $TAG_NAME"
+            git tag -f "$LATEST_TAG"
+            git push origin "$TAG_NAME"
+            git push origin --force "$LATEST_TAG"
+            TAG_CREATED="true"
+            echo "✅ Tags pushed: $TAG_NAME, $LATEST_TAG"
           fi
 
-          # Create or update major version "latest" tag
-          MAJOR_VERSION=$(echo "$VERSION" | sed 's/^\([0-9]*\)\..*/\1/')
-          LATEST_TAG=""
-          if [ -n "$MAJOR_VERSION" ]; then
-            LATEST_TAG="v$MAJOR_VERSION-latest"
-            if git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
-              TAG_SHA=$(git rev-parse "$LATEST_TAG")
-              HEAD_SHA=$(git rev-parse HEAD)
-              if [ "$TAG_SHA" = "$HEAD_SHA" ]; then
-                echo "✓ [AUTO-TAG] Tag $LATEST_TAG already points to HEAD, no update needed"
-              else
-                git tag -f "$LATEST_TAG"
-                echo "✓ [AUTO-TAG] Updated: $LATEST_TAG"
-              fi
-            else
-              git tag "$LATEST_TAG"
-              echo "✓ [AUTO-TAG] Created: $LATEST_TAG"
-            fi
-          fi
-
-          # Export outputs for next steps
+          echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "✅ [AUTO-TAG] Tags created/updated locally: $TAG_NAME"
-          if [ -n "$LATEST_TAG" ]; then
-            echo "✅ [AUTO-TAG] Tags created/updated locally: $LATEST_TAG"
-          fi
-
-      - name: Push tags to remote
-        id: push_tags
-        if: steps.version.outputs.found == 'true'
-        run: |
-          TAG_NAME="${{ steps.create_tags.outputs.tag_name }}"
-          LATEST_TAG="${{ steps.create_tags.outputs.latest_tag }}"
-
-          # Push main version tag
-          if git push origin --force "$TAG_NAME" 2>&1; then
-            echo "✅ [AUTO-TAG] Tag pushed to remote with force: $TAG_NAME"
-          else
-            echo "⚠️  [AUTO-TAG] Failed to push tag to remote: $TAG_NAME"
-            exit 1
-          fi
-
-          # Push latest tag if it exists
-          if [ -n "$LATEST_TAG" ]; then
-            if git push origin --force "$LATEST_TAG" 2>&1; then
-              echo "✅ [AUTO-TAG] Tag pushed to remote with force: $LATEST_TAG"
-            else
-              echo "⚠️  [AUTO-TAG] Failed to push tag to remote: $LATEST_TAG"
-              exit 1
-            fi
-          fi
-
-          # Re-export outputs for job-level outputs
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "🎉 [AUTO-TAG] All tags pushed successfully!"
 
       - name: Summary
-        if: steps.version.outputs.found == 'true'
+        if: steps.create_tags.outputs.tag_created == 'true'
         run: |
           echo "## 🏷️ Auto-Tagging Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package**: ${{ steps.metadata.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source**: ${{ steps.version.outputs.source }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Python**: ${{ steps.metadata.outputs.python_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Pre-release**: ${{ steps.metadata.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Main Tag**: ${{ steps.push_tags.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ steps.push_tags.outputs.latest_tag }}" ]; then
-            echo "- **Latest Tag**: ${{ steps.push_tags.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Tags successfully created and pushed to remote!" >> $GITHUB_STEP_SUMMARY
-
-  # ========================================
-  # TRIGGER OTHER WORKFLOWS (reusable workflow calls)
-  # ========================================
-  # Uncomment and configure the jobs below to trigger local workflows.
-  # Each job runs in parallel after auto-tag completes.
-  # The called workflows must define `on: workflow_call:` with matching inputs.
+          echo "- **Tag**: ${{ steps.create_tags.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
 
   trigger-publish:
     name: Trigger Publish
     needs: auto-tag
-    if: needs.auto-tag.outputs.new_tag == 'true'
+    if: needs.auto-tag.outputs.tag_created == 'true'
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/publish-pypi.yml
-    secrets: inherit
     with:
       version: ${{ needs.auto-tag.outputs.version }}
       tag: ${{ needs.auto-tag.outputs.tag_name }}
-      package_name: ${{ needs.auto-tag.outputs.package_name }}
-      python_version: ${{ needs.auto-tag.outputs.python_version }}
-      is_prerelease: ${{ needs.auto-tag.outputs.is_prerelease }}
 
   trigger-deploy-docs:
     name: Trigger Deploy Docs
     needs: [auto-tag, trigger-publish]
-    if: needs.auto-tag.outputs.new_tag == 'true'
+    if: needs.auto-tag.outputs.tag_created == 'true'
+    permissions:
+      contents: write
     uses: ./.github/workflows/docs.yml
-    secrets: inherit
-    with:
-      version: ${{ needs.auto-tag.outputs.version }}
-      tag: ${{ needs.auto-tag.outputs.tag_name }}
-      package_name: ${{ needs.auto-tag.outputs.package_name }}
-      python_version: ${{ needs.auto-tag.outputs.python_version }}
-      is_prerelease: ${{ needs.auto-tag.outputs.is_prerelease }}

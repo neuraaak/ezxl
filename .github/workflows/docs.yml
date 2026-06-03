@@ -3,82 +3,45 @@ name: Deploy Documentation
 on:
   workflow_dispatch:
   workflow_call:
-    inputs:
-      version:
-        required: true
-        type: string
-      tag:
-        required: true
-        type: string
-      package_name:
-        required: true
-        type: string
-      python_version:
-        required: true
-        type: string
-      is_prerelease:
-        required: true
-        type: string
-        default: "false"
 
 permissions:
   contents: write
 
-env:
-  PACKAGE_NAME: ${{ inputs.package_name }}
-  PYTHON_VERSION: ${{ inputs.python_version }}
-  IS_PRERELEASE: ${{ inputs.is_prerelease }}
-  # Extra system dependencies required before package install (leave empty if none)
-  EXTRA_SYSTEM_DEPS: ""
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Build and Deploy Docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           fetch-depth: 0
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
-          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install extra system dependencies
-        if: env.EXTRA_SYSTEM_DEPS != ''
-        run: |
-          echo "📦 Installing extra system dependencies..."
-          uv pip install ${{ env.EXTRA_SYSTEM_DEPS }} --no-cache-dir
-
-      - name: Install package with docs and test dependencies
-        run: |
-          echo "📦 Installing package with docs and test dependencies..."
-          uv sync --extra docs --extra test
+      - run: uv sync --frozen --extra docs --extra test
 
       - name: Generate coverage report
-        run: |
-          echo "🧪 Running tests and generating coverage report..."
-          uv run pytest --cov=src/ --cov-report=html --cov-report=xml -q || true
-          echo "✅ Coverage report generated!"
+        # excel marker requires a live Excel installation (Windows only) — excluded from CI
+        run: uv run pytest -m "not excel" --cov=src/ezxl --cov-report=html --cov-report=xml -q
 
       - name: Enforce import contracts
-        run: |
-          echo "🧭 Enforcing import contracts with import-linter..."
-          uv run lint-imports
-          echo "✅ Import contracts enforced"
+        run: PYTHONPATH=src uv run lint-imports
 
       - name: Generate architecture graph
         run: |
-          echo "🏗️ Generating architecture dependency graph..."
-          uv run python .scripts/dev/generate_architecture_graph.py
-          echo "✅ Architecture graph generated!"
+          if [ -f ".scripts/dev/generate_architecture_graph.py" ]; then
+            uv run python .scripts/dev/generate_architecture_graph.py
+          fi
 
       - name: Generate changelog
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4
         with:
           config: cliff.toml
           args: --output docs/changelog.md
@@ -89,17 +52,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages --depth=1 || true
 
-      - name: Deploy versioned documentation
+      - name: Deploy documentation with mike
         run: |
-          VERSION="${{ inputs.version || 'dev' }}"
-          IS_PRERELEASE="${{ env.IS_PRERELEASE }}"
-          echo "📚 Deploying versioned documentation for ${{ env.PACKAGE_NAME }} ($VERSION, pre-release=$IS_PRERELEASE)..."
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            # Pre-release: publish the version but do NOT move the latest alias
-            uv run mike deploy --push "$VERSION"
-            echo "✅ Documentation deployed: $VERSION (pre-release — latest alias unchanged)"
-          else
-            uv run mike deploy --push --update-aliases "$VERSION" latest
-            uv run mike set-default --push latest
-            echo "✅ Documentation deployed: $VERSION → latest"
-          fi
+          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          uv run mike deploy --push --update-aliases "$VERSION" latest
+          uv run mike set-default --push latest

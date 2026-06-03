@@ -449,7 +449,7 @@ wheels = [
 
 [[package]]
 name = "ezxl"
-version = "1.1.2"
+version = "1.1.3"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
