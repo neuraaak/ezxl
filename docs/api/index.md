@@ -61,13 +61,13 @@ Curated index of the public `ezxl` API exported from the top-level package.
 | [`GUIOperationError`](reference/index.md#ezxl.GUIOperationError)                 | A GUI surface call failed.                          |
 | [`FormatterError`](reference/index.md#ezxl.FormatterError)                       | A closed-file formatting operation failed.          |
 
-## 🔍 Full reference
-
-For the complete mkdocstrings dump of the public API, see [Full reference](reference/index.md).
-
 ## 📦 Backend modules
 
 | Module page                                           | Description                                                                                                       |
 | :---------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | [Win32com backends](reference/win32com-backends.md)   | Module-level reference for COM GUI backends (`RibbonProxy`, `MenuProxy`, `DialogProxy`, `COMBackstageBackend`).   |
 | [Pywinauto backends](reference/pywinauto-backends.md) | Module-level reference for optional UI Automation backends (`PywinautoKeysBackend`, `PywinautoBackstageBackend`). |
+
+## 🔍 Full reference
+
+For the complete mkdocstrings dump of the public API, see [Full reference](reference/index.md).

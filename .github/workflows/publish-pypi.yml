@@ -6,8 +6,9 @@ on:
       skip_tests:
         description: "Skip tests before publishing (not recommended)"
         required: false
-        default: false
-        type: boolean
+        default: "false"
+        type: choice
+        options: ["false", "true"]
   workflow_call:
     inputs:
       version:
@@ -16,178 +17,102 @@ on:
       tag:
         required: true
         type: string
-      package_name:
-        required: true
-        type: string
-      python_version:
-        required: true
-        type: string
-      is_prerelease:
-        required: true
-        type: string
-        default: "false"
-    secrets:
-      PYPI_API_TOKEN:
-        description: "PyPI API token for package publishing"
-        required: true
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 env:
-  PACKAGE_NAME: ${{ inputs.package_name }}
-  PYTHON_VERSION: ${{ inputs.python_version }}
-  IS_PRERELEASE: ${{ inputs.is_prerelease }}
+  PACKAGE_NAME: ezxl
 
 jobs:
-  # Job de validation et tests avant publication
   validate:
-    name: Validate Package
-    runs-on: ubuntu-latest
+    name: Validate & Build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
-      version: ${{ steps.extract_pyproject_version.outputs.version }}
-      tag_version: ${{ steps.extract_version.outputs.tag_version }}
-      version_match: ${{ steps.check_version.outputs.match }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Nécessaire pour accéder aux tags et vérifier les branches
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Fetch all branches and tags
+      - name: Extract and verify version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          git fetch --all --tags --prune
-          echo "📋 Available branches:"
-          git branch -a
-          echo "📋 Available tags:"
-          git tag -l
-
-      - name: Extract version from tag
-        id: extract_version
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            # Appelé via workflow_call depuis auto-tag
-            TAG_NAME="${{ inputs.tag }}"
-            TAG_VERSION="${{ inputs.version }}"
-          else
-            # En mode manuel (workflow_dispatch), utiliser le dernier tag semver ou pyproject.toml
-            TAG_NAME=$(git tag -l "v*.*.*" --sort=-version:refname | head -n 1)
-            if [ -n "$TAG_NAME" ]; then
-              TAG_VERSION=$(echo "$TAG_NAME" | sed 's/^v//')
-            else
-              TAG_VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-              TAG_NAME="v$TAG_VERSION"
-            fi
-          fi
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Tag name: $TAG_NAME"
-          echo "📦 Tag version: $TAG_VERSION"
-
-      - name: Extract version from pyproject.toml
-        id: extract_pyproject_version
-        run: |
-          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📋 pyproject.toml version: $VERSION"
-
-      - name: Check version consistency
-        id: check_version
-        run: |
-          TAG_VERSION="${{ steps.extract_version.outputs.tag_version }}"
-          PYPROJECT_VERSION="${{ steps.extract_pyproject_version.outputs.version }}"
-
-          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
-            echo "❌ Version mismatch!"
-            echo "   Tag version: $TAG_VERSION"
-            echo "   pyproject.toml version: $PYPROJECT_VERSION"
-            echo "match=false" >> $GITHUB_OUTPUT
+          PYPROJECT_VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          if [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "::error::Version mismatch: input=$INPUT_VERSION, pyproject.toml=$PYPROJECT_VERSION"
             exit 1
           fi
+          echo "version=$PYPROJECT_VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $PYPROJECT_VERSION"
 
-          echo "✅ Version consistency check passed"
-          echo "match=true" >> $GITHUB_OUTPUT
-
-      - name: Install dependencies
-        run: |
-          uv sync --extra dev
-
-      - name: Run tests
-        if: github.event_name != 'workflow_dispatch' || !github.event.inputs.skip_tests
-        run: |
-          echo "🧪 Running test suite..."
-          uv run pytest tests/ -v --tb=short
-
-  # Job de build et publication
-  publish:
-    name: Build and Publish
-    needs: validate
-    runs-on: ubuntu-latest
-    if: needs.validate.outputs.version_match == 'true'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
-          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Clean previous builds
-        run: |
-          echo "🧹 Cleaning previous build artifacts..."
-          rm -rf build/ dist/ *.egg-info/
+      - run: uv sync --frozen --extra dev
 
-      - name: Install build dependencies
-        run: |
-          uv sync --extra dev
+      - name: Enforce import contracts
+        run: PYTHONPATH=src uv run lint-imports
+
+      - name: Run tests
+        # excel marker requires a live Excel installation (Windows only) — excluded from CI
+        if: github.event.inputs.skip_tests != 'true'
+        run: uv run pytest -m "not excel"
 
       - name: Build package
-        run: |
-          echo "🔨 Building package..."
-          uv build
-          echo "📦 Build artifacts:"
-          ls -lh dist/
+        run: uv build
 
       - name: Check package
-        run: |
-          echo "🔍 Checking package validity..."
-          uv run twine check dist/*
-          echo "✅ Package check passed"
+        run: uv run twine check dist/*
 
-      - name: Verify package installation
+      - name: Verify wheel installation
         run: |
-          echo "🧪 Verifying package can be installed..."
-          uv pip install dist/*.whl --force-reinstall
-          uv run python -c "import sys; import importlib; pkg = importlib.import_module('${{ env.PACKAGE_NAME }}'); print(f'✅ Package installed successfully: ${{ env.PACKAGE_NAME }} {getattr(pkg, \"__version__\", \"unknown\")}')"
-          uv pip uninstall ${{ env.PACKAGE_NAME }}
+          uv venv /tmp/test-venv
+          uv pip install --python /tmp/test-venv --no-build dist/*.whl
+          /tmp/test-venv/bin/python -c "import ezxl; print('✅', ezxl.__version__)"
 
-      - name: Warn if pre-release
-        if: env.IS_PRERELEASE == 'true'
-        run: |
-          echo "⚠️  Publishing a pre-release version (${{ inputs.version }}) to production PyPI."
-          echo "    Ensure this is intentional — pre-releases are visible to all users."
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          verbose: true
-          skip-existing: false
+          name: dist
+          path: dist/
+          retention-days: 1
 
-      - name: Show publish info
+  publish:
+    name: Publish to PyPI (OIDC)
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/${{ env.PACKAGE_NAME }}/${{ needs.validate.outputs.version }}/
+
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          verbose: true
+          # Attestations disabled: when called as a reusable workflow from
+          # auto-tag.yml, the OIDC token's Build Config URI reflects the
+          # caller (auto-tag.yml) rather than this workflow, causing PyPI
+          # Trusted Publisher verification to fail.
+          attestations: false
+
+      - name: Summary
         run: |
-          echo "✅ Package published successfully to PyPI!"
-          echo "📦 Package: ${{ env.PACKAGE_NAME }}"
-          echo "🏷️  Version: ${{ needs.validate.outputs.version }}"
-          echo "🔗 URL: https://pypi.org/project/${{ env.PACKAGE_NAME }}/"
-          echo "📋 PyPI Project: https://pypi.org/project/${{ env.PACKAGE_NAME }}/${{ needs.validate.outputs.version }}/"
+          echo "## 📦 Published to PyPI" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: ${{ env.PACKAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://pypi.org/project/${{ env.PACKAGE_NAME }}/${{ needs.validate.outputs.version }}/" >> $GITHUB_STEP_SUMMARY
