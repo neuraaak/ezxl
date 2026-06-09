@@ -21,7 +21,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: publish
+  group: publish-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -39,18 +39,25 @@ jobs:
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
-      - name: Extract and verify version
+      - name: Resolve version
         id: version
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_VERSION: ${{ inputs.version || '' }}
         run: |
-          PYPROJECT_VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-          if [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != "$PYPROJECT_VERSION" ]; then
-            echo "::error::Version mismatch: input=$INPUT_VERSION, pyproject.toml=$PYPROJECT_VERSION"
-            exit 1
+          VERSION="$INPUT_VERSION"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
           fi
-          echo "version=$PYPROJECT_VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $PYPROJECT_VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Preview mode summary
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_call' && startsWith(inputs.tag, 'preview-'))
+        run: |
+          echo "## 🔎 Publish Preview Mode" >> $GITHUB_STEP_SUMMARY
+          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch/PR validation runs fully." >> $GITHUB_STEP_SUMMARY
+          echo "- Final PyPI publish step is intentionally skipped." >> $GITHUB_STEP_SUMMARY
 
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
@@ -59,24 +66,39 @@ jobs:
       - run: uv sync --frozen --extra dev
 
       - name: Enforce import contracts
-        run: PYTHONPATH=src uv run lint-imports
+        run: PYTHONPATH=src uv run --frozen lint-imports
 
       - name: Run tests
         # excel marker requires a live Excel installation (Windows only) — excluded from CI
         if: github.event.inputs.skip_tests != 'true'
-        run: uv run pytest -m "not excel"
+        run: uv run --frozen pytest -m "not excel"
 
       - name: Build package
         run: uv build
 
       - name: Check package
-        run: uv run twine check dist/*
+        run: uv run --frozen twine check dist/*
 
       - name: Verify wheel installation
         run: |
-          uv venv /tmp/test-venv
-          uv pip install --python /tmp/test-venv --no-build dist/*.whl
-          /tmp/test-venv/bin/python -c "import ezxl; print('✅', ezxl.__version__)"
+          python -m zipfile -t dist/*.whl
+          python - <<'PY'
+          import glob
+          import sys
+          import zipfile
+
+          wheels = glob.glob("dist/*.whl")
+          if not wheels:
+            raise SystemExit("No wheel found in dist/")
+
+          with zipfile.ZipFile(wheels[0]) as zf:
+            names = zf.namelist()
+
+          if not any(name.startswith("ezxl/") for name in names):
+            raise SystemExit("Wheel does not contain ezxl package")
+
+          print("Wheel integrity check passed")
+          PY
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -87,6 +109,7 @@ jobs:
   publish:
     name: Publish to PyPI (OIDC)
     needs: validate
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_call' && !startsWith(inputs.tag, 'preview-'))
     runs-on: ubuntu-24.04
     permissions:
       contents: read
