@@ -3,13 +3,18 @@ name: Deploy Documentation
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      deploy:
+        description: "Deploy docs (true) or preview-only (false)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: deploy-docs
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -29,15 +34,15 @@ jobs:
 
       - name: Generate coverage report
         # excel marker requires a live Excel installation (Windows only) — excluded from CI
-        run: uv run pytest -m "not excel" --cov=src/ezxl --cov-report=html --cov-report=xml -q
+        run: uv run --frozen pytest -m "not excel" --cov=src/ezxl --cov-report=html --cov-report=xml -q
 
       - name: Enforce import contracts
-        run: PYTHONPATH=src uv run lint-imports
+        run: PYTHONPATH=src uv run --frozen lint-imports
 
       - name: Generate architecture graph
         run: |
           if [ -f ".scripts/dev/generate_architecture_graph.py" ]; then
-            uv run python .scripts/dev/generate_architecture_graph.py
+            uv run --frozen python .scripts/dev/generate_architecture_graph.py
           fi
 
       - name: Generate changelog
@@ -46,14 +51,74 @@ jobs:
           config: cliff.toml
           args: --output docs/changelog.md
 
+      - name: Resolve docs version
+        id: docs_version
+        run: |
+          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Wait for PyPI publish (release mode)
+        if: inputs.deploy || github.event_name == 'workflow_dispatch'
+        env:
+          PACKAGE_NAME: ezxl
+          PACKAGE_VERSION: ${{ steps.docs_version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          package = os.environ["PACKAGE_NAME"]
+          version = os.environ["PACKAGE_VERSION"]
+          url = f"https://pypi.org/pypi/{package}/{version}/json"
+          timeout_seconds = 900
+          interval_seconds = 15
+          deadline = time.time() + timeout_seconds
+
+          while time.time() < deadline:
+            try:
+              with urllib.request.urlopen(url, timeout=10) as response:
+                if response.status == 200:
+                  print(f"PyPI package available: {package}=={version}")
+                  break
+            except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                raise
+            except urllib.error.URLError:
+              pass
+
+            print(f"Waiting for PyPI package {package}=={version}...")
+            time.sleep(interval_seconds)
+          else:
+            raise SystemExit(
+              f"Timed out after {timeout_seconds}s waiting for {package}=={version} on PyPI"
+            )
+          PY
+
       - name: Configure git for mike
+        if: inputs.deploy || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin gh-pages --depth=1 || true
 
       - name: Deploy documentation with mike
+        if: inputs.deploy || github.event_name == 'workflow_dispatch'
+        env:
+          DOCS_VERSION: ${{ steps.docs_version.outputs.version }}
         run: |
-          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-          uv run mike deploy --push --update-aliases "$VERSION" latest
-          uv run mike set-default --push latest
+          uv run --frozen mike deploy --push --update-aliases "$DOCS_VERSION" latest
+          uv run --frozen mike set-default --push latest
+
+      - name: Preview mode summary
+        if: github.event_name == 'workflow_call' && !inputs.deploy
+        run: |
+          echo "## 🔎 Docs Preview Mode" >> $GITHUB_STEP_SUMMARY
+          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build and checks completed." >> $GITHUB_STEP_SUMMARY
+          echo "- Documentation deploy step is intentionally skipped." >> $GITHUB_STEP_SUMMARY

@@ -2,10 +2,14 @@ name: Auto Tag
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions: {}
+
+concurrency:
+  group: auto-tag-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   auto-tag:
@@ -15,6 +19,7 @@ jobs:
       contents: write
     outputs:
       tag_created: ${{ steps.create_tags.outputs.tag_created }}
+      tags_updated: ${{ steps.create_tags.outputs.tags_updated }}
       version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.create_tags.outputs.tag_name }}
 
@@ -39,6 +44,16 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG_NAME="v$VERSION"
+
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            SAFE_BRANCH=$(echo "${GITHUB_REF_NAME}" | tr '/_' '--')
+            TAG_NAME="preview-${SAFE_BRANCH}-${GITHUB_SHA::7}"
+            echo "tag_created=true" >> $GITHUB_OUTPUT
+            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "ℹ️ Non-main branch: no git tag pushed. Propagating version only to downstream workflows."
+            exit 0
+          fi
+
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
           LATEST_TAG="v${MAJOR}-latest"
 
@@ -59,6 +74,7 @@ jobs:
               git tag -f "$LATEST_TAG"
               git push origin --force "$TAG_NAME"
               git push origin --force "$LATEST_TAG"
+              echo "tags_updated=true" >> $GITHUB_OUTPUT
               echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (no publish — version unchanged)"
             fi
           else
@@ -67,6 +83,7 @@ jobs:
             git push origin "$TAG_NAME"
             git push origin --force "$LATEST_TAG"
             TAG_CREATED="true"
+            echo "tags_updated=true" >> $GITHUB_OUTPUT
             echo "✅ Tags pushed: $TAG_NAME, $LATEST_TAG"
           fi
 
@@ -95,7 +112,13 @@ jobs:
   trigger-deploy-docs:
     name: Trigger Deploy Docs
     needs: [auto-tag, trigger-publish]
-    if: needs.auto-tag.outputs.tag_created == 'true'
+    if: |
+      always() &&
+      needs.auto-tag.result == 'success' &&
+      needs.auto-tag.outputs.tags_updated == 'true' &&
+      (needs.trigger-publish.result == 'success' || needs.trigger-publish.result == 'skipped')
     permissions:
       contents: write
     uses: ./.github/workflows/docs.yml
+    with:
+      deploy: true
