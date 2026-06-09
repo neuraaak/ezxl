@@ -61,9 +61,17 @@ jobs:
               git tag -f "$LATEST_TAG"
               git push origin --force "$TAG_NAME"
               git push origin --force "$LATEST_TAG"
-              echo "tag_action=update" >> $GITHUB_OUTPUT
-              echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-              echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (no publish — version unchanged)"
+              # If the old tag was already on main (docs/chore commit on main after a
+              # publish), the version was already released — skip publish.
+              # If the old tag was on a feature branch (tagged before merging), it was
+              # never published from main — trigger publish now.
+              if git merge-base --is-ancestor "$TAG_SHA" "HEAD^1" 2>/dev/null; then
+                echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (no publish — already released from main)"
+              else
+                echo "tag_action=create" >> $GITHUB_OUTPUT
+                echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+                echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (publish — tag was on feature branch)"
+              fi
             fi
           else
             git tag "$TAG_NAME"
