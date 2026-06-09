@@ -62,45 +62,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Wait for PyPI publish (release mode)
-        if: inputs.deploy || github.event_name == 'workflow_dispatch'
-        env:
-          PACKAGE_NAME: ezxl
-          PACKAGE_VERSION: ${{ steps.docs_version.outputs.version }}
-        run: |
-          python - <<'PY'
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-
-          package = os.environ["PACKAGE_NAME"]
-          version = os.environ["PACKAGE_VERSION"]
-          url = f"https://pypi.org/pypi/{package}/{version}/json"
-          timeout_seconds = 900
-          interval_seconds = 15
-          deadline = time.time() + timeout_seconds
-
-          while time.time() < deadline:
-            try:
-              with urllib.request.urlopen(url, timeout=10) as response:
-                if response.status == 200:
-                  print(f"PyPI package available: {package}=={version}")
-                  break
-            except urllib.error.HTTPError as exc:
-              if exc.code != 404:
-                raise
-            except urllib.error.URLError:
-              pass
-
-            print(f"Waiting for PyPI package {package}=={version}...")
-            time.sleep(interval_seconds)
-          else:
-            raise SystemExit(
-              f"Timed out after {timeout_seconds}s waiting for {package}=={version} on PyPI"
-            )
-          PY
-
       - name: Configure git for mike
         if: inputs.deploy || github.event_name == 'workflow_dispatch'
         run: |

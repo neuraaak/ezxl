@@ -2,7 +2,7 @@ name: Auto Tag
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   workflow_dispatch:
 
 permissions: {}
@@ -18,8 +18,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      tag_created: ${{ steps.create_tags.outputs.tag_created }}
-      tags_updated: ${{ steps.create_tags.outputs.tags_updated }}
+      tag_action: ${{ steps.create_tags.outputs.tag_action }}
       version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.create_tags.outputs.tag_name }}
 
@@ -44,37 +43,26 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG_NAME="v$VERSION"
-
-          if [ "${GITHUB_REF_NAME}" != "main" ]; then
-            SAFE_BRANCH=$(echo "${GITHUB_REF_NAME}" | tr '/_' '--')
-            TAG_NAME="preview-${SAFE_BRANCH}-${GITHUB_SHA::7}"
-            echo "tag_created=true" >> $GITHUB_OUTPUT
-            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-            echo "ℹ️ Non-main branch: no git tag pushed. Propagating version only to downstream workflows."
-            exit 0
-          fi
-
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
           LATEST_TAG="v${MAJOR}-latest"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          TAG_CREATED="false"
-
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             TAG_SHA=$(git rev-parse "$TAG_NAME")
             HEAD_SHA=$(git rev-parse HEAD)
             if [ "$TAG_SHA" = "$HEAD_SHA" ]; then
+              echo "tag_action=none" >> $GITHUB_OUTPUT
+              echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
               echo "Tag $TAG_NAME already points to HEAD — nothing to do"
             else
-              # Version unchanged (chore/docs commit): move the tag to HEAD
-              # without triggering a publish (TAG_CREATED stays false).
               git tag -f "$TAG_NAME"
               git tag -f "$LATEST_TAG"
               git push origin --force "$TAG_NAME"
               git push origin --force "$LATEST_TAG"
-              echo "tags_updated=true" >> $GITHUB_OUTPUT
+              echo "tag_action=update" >> $GITHUB_OUTPUT
+              echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
               echo "🔄 Tags moved to HEAD: $TAG_NAME, $LATEST_TAG (no publish — version unchanged)"
             fi
           else
@@ -82,25 +70,23 @@ jobs:
             git tag -f "$LATEST_TAG"
             git push origin "$TAG_NAME"
             git push origin --force "$LATEST_TAG"
-            TAG_CREATED="true"
-            echo "tags_updated=true" >> $GITHUB_OUTPUT
+            echo "tag_action=create" >> $GITHUB_OUTPUT
+            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
             echo "✅ Tags pushed: $TAG_NAME, $LATEST_TAG"
           fi
 
-          echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-
       - name: Summary
-        if: steps.create_tags.outputs.tag_created == 'true'
+        if: steps.create_tags.outputs.tag_action != 'none'
         run: |
           echo "## 🏷️ Auto-Tagging Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action**: ${{ steps.create_tags.outputs.tag_action }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Tag**: ${{ steps.create_tags.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
 
   trigger-publish:
     name: Trigger Publish
     needs: auto-tag
-    if: needs.auto-tag.outputs.tag_created == 'true'
+    if: needs.auto-tag.outputs.tag_action == 'create'
     permissions:
       contents: read
       id-token: write
@@ -115,7 +101,7 @@ jobs:
     if: |
       always() &&
       needs.auto-tag.result == 'success' &&
-      needs.auto-tag.outputs.tags_updated == 'true' &&
+      needs.auto-tag.outputs.tag_action != 'none' &&
       (needs.trigger-publish.result == 'success' || needs.trigger-publish.result == 'skipped')
     permissions:
       contents: write

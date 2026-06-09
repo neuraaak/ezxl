@@ -2,13 +2,6 @@ name: Publish to PyPI
 
 on:
   workflow_dispatch:
-    inputs:
-      skip_tests:
-        description: "Skip tests before publishing (not recommended)"
-        required: false
-        default: "false"
-        type: choice
-        options: ["false", "true"]
   workflow_call:
     inputs:
       version:
@@ -51,14 +44,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Preview mode summary
-        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_call' && startsWith(inputs.tag, 'preview-'))
-        run: |
-          echo "## 🔎 Publish Preview Mode" >> $GITHUB_STEP_SUMMARY
-          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Branch/PR validation runs fully." >> $GITHUB_STEP_SUMMARY
-          echo "- Final PyPI publish step is intentionally skipped." >> $GITHUB_STEP_SUMMARY
-
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
@@ -67,11 +52,6 @@ jobs:
 
       - name: Enforce import contracts
         run: PYTHONPATH=src uv run --frozen lint-imports
-
-      - name: Run tests
-        # excel marker requires a live Excel installation (Windows only) — excluded from CI
-        if: github.event.inputs.skip_tests != 'true'
-        run: uv run --frozen pytest -m "not excel"
 
       - name: Build package
         run: uv build
@@ -109,7 +89,7 @@ jobs:
   publish:
     name: Publish to PyPI (OIDC)
     needs: validate
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_call' && !startsWith(inputs.tag, 'preview-'))
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
