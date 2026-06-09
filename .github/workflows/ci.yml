@@ -67,7 +67,7 @@ jobs:
       # excel marker requires a live Excel installation (Windows only) — excluded from CI
       - run: uv run --frozen pytest -m "not excel"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: matrix.python == '3.11' && always()
+        if: matrix.python == '3.13' && always()
         with:
           name: coverage-report
           path: |
