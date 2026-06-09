@@ -20,7 +20,7 @@ import threading
 import time
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import Any, cast
 
 # Third-party imports
 from ezplog.lib_mode import get_logger
@@ -48,9 +48,6 @@ _DISCONNECTED_HRESULTS: frozenset[int] = frozenset(
         0x800706BA,  # RPC_S_SERVER_UNAVAILABLE
     ]
 )
-
-_FuncP = ParamSpec("_FuncP")
-_FuncR = TypeVar("_FuncR")
 
 # ///////////////////////////////////////////////////////////////
 # FUNCTIONS
@@ -90,7 +87,9 @@ def wait_until_ready(xl_app: Any, timeout: float = 30.0) -> None:
     raise COMOperationError(f"Excel did not become ready within {timeout:.1f} seconds.")
 
 
-def wrap_com_error(func: Callable[_FuncP, _FuncR]) -> Callable[_FuncP, _FuncR]:
+def wrap_com_error[**FuncP, FuncR](
+    func: Callable[FuncP, FuncR],
+) -> Callable[FuncP, FuncR]:
     """Decorator that intercepts ``pywintypes.com_error`` and re-raises as EzXl exceptions.
 
     Wraps any COM boundary function so that raw pywin32 errors never escape
@@ -110,7 +109,7 @@ def wrap_com_error(func: Callable[_FuncP, _FuncR]) -> Callable[_FuncP, _FuncR]:
     """
 
     @wraps(func)
-    def _wrapper(*args: _FuncP.args, **kwargs: _FuncP.kwargs) -> _FuncR:
+    def _wrapper(*args: FuncP.args, **kwargs: FuncP.kwargs) -> FuncR:
         try:
             return func(*args, **kwargs)
         except Exception as exc:
@@ -129,7 +128,7 @@ def wrap_com_error(func: Callable[_FuncP, _FuncR]) -> Callable[_FuncP, _FuncR]:
             # Re-raise non-COM exceptions untouched.
             raise
 
-    return cast(Callable[_FuncP, _FuncR], _wrapper)
+    return cast(Callable[FuncP, FuncR], _wrapper)
 
 
 def assert_main_thread(thread_id: int) -> None:

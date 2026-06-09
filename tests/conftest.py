@@ -37,7 +37,7 @@ import pytest
 
 
 @pytest.fixture
-def temp_dir() -> Generator[Path, None, None]:
+def temp_dir() -> Generator[Path]:
     """Create a temporary directory for test files.
 
     The directory is removed after the test completes. ``gc.collect()``
