@@ -59,29 +59,7 @@ dependencies = [
 # Development tools, testing, and build dependencies
 # ///////////////////////////////////////////////////////////////
 
-[project.optional-dependencies]
-dev = [
-    # Development tools
-    "ruff>=0.1.0",
-    "ty>=0.0.13",
-    "pyright>=1.1.0",
-    "pre-commit>=3.0.0",
-    "import-linter>=2.0.0",
-    "grimp>=2.3.0",
-
-    # Security
-    "bandit>=1.7.0",
-
-    # Tests
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-xdist>=3.0.0",
-
-    # Build and distribution
-    "build>=1.0.0",
-    "twine>=4.0.0",
-]
+[dependency-groups]
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -90,7 +68,7 @@ test = [
     "import-linter>=2.0.0",
 ]
 docs = [
-    "mkdocs>=1.6.0",
+    "mkdocs>=1.6.0,<2.0.0",
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.27.0",
     "mkdocs-section-index>=0.3.0",
@@ -98,6 +76,35 @@ docs = [
     "mike>=2.0.0",
     "pymdown-extensions>=10.7",
     "git-cliff>=2.7.0",
+    "grimp>=2.3.0",
+
+    # Task runner: 04-docs runs `poe docs-coverage|imports|graph` and syncs
+    # only `docs` + `test`, so poethepoet must be reachable from this group.
+    "poethepoet>=0.32",
+]
+dev = [
+    # Tests (single source of truth, no duplication)
+    { include-group = "test" },
+
+    # Documentation (single source of truth, no duplication)
+    { include-group = "docs" },
+
+    # Development tools
+    "ruff>=0.1.0",
+    "ty>=0.0.13",
+    "pyright>=1.1.0",
+    "pre-commit>=3.0.0",
+
+    # Task runner
+    "poethepoet>=0.32",
+
+    # Security
+    "bandit>=1.7.0",
+    "pip-audit>=2.7.0",
+
+    # Build
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
 
 # ///////////////////////////////////////////////////////////////
@@ -119,6 +126,49 @@ PyPI = "https://pypi.org/project/ezxl/"
 
 [project.scripts]
 "ezxl" = "ezxl.cli.main:cli"
+
+# ///////////////////////////////////////////////////////////////
+# ⚡ POE TASKS
+# Developer commands: run with `uv run poe <task>`
+# ///////////////////////////////////////////////////////////////
+
+[tool.poe.tasks]
+lint = "ruff check src tests"
+lint-fix = "ruff check --fix src tests"
+format = "ruff format src tests"
+format-check = "ruff format --check src tests"
+security = { help = "Run Bandit and audit locked dependencies", sequence = [
+    "bandit -c pyproject.toml -r src",
+    "pip-audit",
+], default_item_type = "cmd" }
+
+test = "pytest"
+# The `excel` marker drives a live Excel instance over COM: Windows-only,
+# excluded from every CI run and from the coverage gate.
+test-ci = "pytest -m 'not excel' --cov-fail-under=85"
+test-unit = "pytest -m unit"
+test-fast = "pytest -n auto -m 'not slow and not excel'"
+docs = "mkdocs serve"
+docs-build = "mkdocs build --strict"
+docs-coverage = "pytest -m 'not excel' --cov=src/ezxl --cov-report=html --cov-report=xml -q"
+graph = "python .scripts/dev/generate_architecture_graph.py"
+version = "python .scripts/dev/update_version.py"
+build = "uv build"
+
+[tool.poe.tasks.imports]
+help = "Check import-linter layer contracts"
+cmd = "lint-imports"
+env = { PYTHONPATH = "src" }
+
+[tool.poe.tasks.typecheck]
+help = "Run pyright then ty"
+sequence = ["pyright", "ty check"]
+default_item_type = "cmd"
+
+[tool.poe.tasks.check]
+help = "Full local quality gate (mirrors CI)"
+sequence = ["format-check", "lint", "typecheck", "imports", "test"]
+default_item_type = "ref"
 
 # ///////////////////////////////////////////////////////////////
 # 📦 HATCHLING CONFIGURATION
@@ -347,7 +397,6 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=85",
     "--tb=short",
     "--color=yes",
     "--durations=10",
