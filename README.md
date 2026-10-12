@@ -4,7 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/ezxl?style=flat&logo=python&logoColor=white)](https://pypi.org/project/ezxl/)
 [![PyPI status](https://img.shields.io/pypi/status/ezxl?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/ezxl/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat&logo=github&logoColor=white)](https://github.com/neuraaak/ezxl/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxl/publish-pypi.yml?style=flat&label=publish&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxl/actions/workflows/publish-pypi.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/neuraaak/ezxl/03-publish.yml?style=flat&label=publish&logo=githubactions&logoColor=white)](https://github.com/neuraaak/ezxl/actions/workflows/03-publish.yml)
 [![Docs](https://img.shields.io/badge/docs-Github%20Pages-blue?style=flat&logo=materialformkdocs&logoColor=white)](https://neuraaak.github.io/ezxl/)
 [![uv](https://img.shields.io/badge/package%20manager-uv-DE5FE9?style=flat&logo=uv&logoColor=white)](https://github.com/astral-sh/uv)
 [![linter](https://img.shields.io/badge/linter-ruff-orange?style=flat&logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
@@ -23,8 +23,8 @@
 python -m venv .venv
 .venv\Scripts\activate
 
-# Install in development mode
-pip install -e ".[dev]"
+# Install in development mode with the `dev` dependency group
+uv sync --group dev
 ```
 
 ### pywin32 post-install step (mandatory)
@@ -40,7 +40,7 @@ python .venv/Scripts/pywin32_postinstall.py -install
 In restricted environments without PyPI access, install from local wheel files only. No network requests are made during installation. Configure your pip to point to a local wheel directory:
 
 ```bash
-pip install --no-index --find-links=\\share\wheels -e ".[dev]"
+pip install --no-index --find-links=\\share\wheels -e . --group dev
 ```
 
 ### Optional pywinauto backend
@@ -101,13 +101,13 @@ Full documentation is available online: **[neuraaak.github.io/ezxl](https://neur
 
 ```bash
 # Install dev dependencies
-pip install -e ".[dev]"
+uv sync --group dev
 
-# Run unit tests (no Excel required)
-pytest tests/ -m "not excel"
+# Run unit tests (no Excel required) - what CI runs
+uv run poe test-ci
 
-# Run integration tests (requires local Excel)
-pytest tests/ -m excel
+# Run the whole suite, integration tests included (requires local Excel)
+uv run poe test
 ```
 
 > **Note**: Integration tests marked with `@pytest.mark.excel` require a locally installed Excel instance. They are excluded from CI/CD pipelines and are intended for local verification only.
@@ -124,7 +124,7 @@ python -m venv .venv
 .venv\Scripts\activate
 
 # Install in development mode with all dev dependencies
-pip install -e ".[dev]"
+uv sync --group dev
 
 # Mandatory: register pywin32 COM components
 python .venv/Scripts/pywin32_postinstall.py -install

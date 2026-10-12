@@ -1,0 +1,117 @@
+name: 02 · Tag Sync
+
+# Release orchestrator. On push to main it runs CI as the release gate, decides
+# a three-state `tag_action` (create | skip | preview), creates the immutable
+# release tag on `create`, then cascades to 03-publish and 04-docs via `uses:`.
+#
+# A single orchestrator is required because a tag pushed by GITHUB_TOKEN does not
+# trigger another workflow (loop protection): we call 03/04 directly.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # run from any branch to exercise preview mode
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tag-sync-${{ github.ref }}
+  cancel-in-progress: false # never interrupt an in-flight release
+
+jobs:
+  ci:
+    name: Release gate (CI)
+    uses: ./.github/workflows/01-ci.yml
+
+  tag-sync:
+    name: Determine action & sync tags
+    needs: ci
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # push tags
+    outputs:
+      tag_action: ${{ steps.gate.outputs.tag_action }}
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.gate.outputs.tag_name }}
+
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0 # full history: need every tag
+
+      - name: Extract version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Determine tag action
+        id: gate
+        run: |
+          TAG_NAME="v${{ steps.version.outputs.version }}"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "tag_action=preview" >> "$GITHUB_OUTPUT"
+            echo "🔎 Off main → preview (dry-run, nothing mutating)"
+          elif git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "tag_action=skip" >> "$GITHUB_OUTPUT"
+            echo "⏭️  $TAG_NAME already exists → skip (already released)"
+          else
+            echo "tag_action=create" >> "$GITHUB_OUTPUT"
+            echo "✅ New version → create $TAG_NAME"
+          fi
+
+      - name: Create immutable tag + move floating alias
+        if: steps.gate.outputs.tag_action == 'create'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          MAJOR="${VERSION%%.*}"
+          LATEST_TAG="v${MAJOR}-latest"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$VERSION"                 # immutable: never force-pushed
+          git push origin "v$VERSION"
+          git tag -f "$LATEST_TAG"            # only the major alias ever moves
+          git push origin --force "$LATEST_TAG"
+          echo "✅ Tags pushed: v$VERSION, $LATEST_TAG"
+
+      - name: Summary
+        run: |
+          echo "## 🏷️ Tag Sync" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Action**: ${{ steps.gate.outputs.tag_action }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tag**: ${{ steps.gate.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+
+  # Publish is irreversible → runs before docs. Not called on `skip` (already
+  # published); on `preview` it builds + packages only (no upload).
+  trigger-publish:
+    name: Publish
+    needs: tag-sync
+    if: needs.tag-sync.outputs.tag_action != 'skip'
+    permissions:
+      contents: read
+      id-token: write # OIDC trusted publishing — no secrets passed
+    uses: ./.github/workflows/03-publish.yml
+    with:
+      version: ${{ needs.tag-sync.outputs.version }}
+      tag_action: ${{ needs.tag-sync.outputs.tag_action }}
+
+  trigger-deploy-docs:
+    name: Docs
+    needs: [tag-sync, trigger-publish]
+    if: |
+      always() &&
+      needs.tag-sync.result == 'success' &&
+      (needs.tag-sync.outputs.tag_action == 'skip' || needs.trigger-publish.result == 'success')
+    permissions:
+      contents: write # mike pushes the built docs to the gh-pages branch
+    uses: ./.github/workflows/04-docs.yml
+    with:
+      version: ${{ needs.tag-sync.outputs.version }}
+      tag_action: ${{ needs.tag-sync.outputs.tag_action }}

@@ -45,7 +45,7 @@ You should see `64 bit` on a standard Microsoft 365 installation. If the bitness
         cd ezxl
         python -m venv .venv
         .venv\Scripts\activate
-        pip install -e ".[dev]"
+        uv sync --group dev
         ```
 
     === "uv"
@@ -53,7 +53,7 @@ You should see `64 bit` on a standard Microsoft 365 installation. If the bitness
         ```bash
         git clone https://github.com/neuraaak/ezxl.git
         cd ezxl
-        uv sync --extra dev
+        uv sync --group dev
         ```
 
 === "Offline wheels"

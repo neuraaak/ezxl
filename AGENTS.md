@@ -81,7 +81,7 @@ if sys.platform == "win32":
 
 ```bash
 # Create venv and install all dev dependencies
-uv sync --extra dev
+uv sync --group dev
 
 # Mandatory post-install step for pywin32 (Windows only, once)
 python .venv/Scripts/pywin32_postinstall.py -install
@@ -93,7 +93,7 @@ pip install -e .
 ### Corporate / offline environment
 
 ```bash
-pip install --no-index --find-links=\\share\wheels -e ".[dev]"
+pip install --no-index --find-links=\\share\wheels -e . --group dev
 ```
 
 No PyPI access is assumed in restricted environments. Use local `.whl` files.
@@ -117,10 +117,12 @@ No PyPI access is assumed in restricted environments. Use local `.whl` files.
 
 Two tools are configured — both must pass:
 
-| Tool      | Command                | Mode                        |
-| --------- | ---------------------- | --------------------------- |
-| `ty`      | `uv run ty check src/` | fast, minimal               |
-| `pyright` | `uv run pyright`       | comprehensive, `basic` mode |
+| Tool      | Command           | Mode                        |
+| --------- | ----------------- | --------------------------- |
+| `pyright` | `uv run pyright`  | comprehensive, `basic` mode |
+| `ty`      | `uv run ty check` | fast, minimal               |
+
+Both run in order via `uv run poe typecheck`.
 
 ### Error Handling Pattern
 
@@ -139,14 +141,17 @@ Only validate at system boundaries (user input, COM calls, file I/O). Do not add
 ## Testing
 
 ```bash
-# Full test suite (excludes tests requiring live Excel)
-uv run pytest tests/ -m "not excel"
+# What CI runs: excludes tests requiring live Excel, applies the 85% threshold
+uv run poe test-ci
+
+# Full suite, live-Excel tests included (Windows + Excel required)
+uv run poe test
 
 # Unit tests only
-uv run pytest tests/unit/
+uv run poe test-unit
 
-# With coverage (CI threshold: 85%)
-uv run pytest tests/ --cov=src/ezxl
+# Parallel, fast subset (no slow, no excel)
+uv run poe test-fast
 ```
 
 ### Test Naming
@@ -173,16 +178,22 @@ Tests in `tests/unit/` must not require a running Excel instance. Mark any test 
 ## Linting & Security
 
 ```bash
-# Run all linters
-uv run ruff check src/ tests/
-uv run ruff format --check src/ tests/
+# Lint and format check
+uv run poe lint
+uv run poe format-check
 
-# Import layer contracts
-PYTHONPATH=src uv run lint-imports
+# Import layer contracts (the task carries PYTHONPATH=src itself)
+uv run poe imports
 
-# Security scan
-uv run bandit -r src/ezxl/ -c pyproject.toml
+# Security scan: bandit + pip-audit
+uv run poe security
+
+# The whole gate, as CI runs it
+uv run poe check
 ```
+
+Every CI step runs a `poe` task from `[tool.poe.tasks]`, so the local command
+and the CI command are the same string. Run `uv run poe --help` for the list.
 
 Pre-commit hooks run ruff + bandit automatically on `git commit`.
 
@@ -190,14 +201,20 @@ Pre-commit hooks run ruff + bandit automatically on `git commit`.
 
 ## CI/CD Pipeline
 
-Three GitHub Actions workflows chain automatically on push to `main`:
+Numbered reusable workflows, one responsibility each, chained on push to `main`:
 
 ```text
-push to main
-    └── auto-tag.yml          # Extracts version from pyproject.toml, creates vX.Y.Z tag
-            └── publish-pypi.yml  # Validates, builds, publishes to PyPI
-                    └── docs.yml      # Builds MkDocs site, deploys to GitHub Pages
+00-install-deps  # primes the uv cache (keyed on uv.lock)
+01-ci            # lint | type-check | security -> test matrix; the quality gate
+                 #   the matrix runs on Ubuntu and Windows
+02-tag-sync      # orchestrator: CI gate -> tag_action -> cascade 03 then 04
+03-publish       # build always; upload to PyPI on `create` only (OIDC)
+04-docs          # build always; deploy latest / dev / none by tag_action
 ```
+
+`02-tag-sync` derives a three-state `tag_action` (`create` | `skip` | `preview`)
+and calls `03`/`04` directly — see `.github/workflows/README.md` for the full
+decision table.
 
 **Version source of truth**: `pyproject.toml` → `[project] version`. The `src/ezxl/_version.py` file is synced from it by the pre-commit hook.
 

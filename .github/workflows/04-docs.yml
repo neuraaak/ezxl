@@ -1,0 +1,138 @@
+name: 04 · Deploy Documentation
+
+# Build the docs on every path (PR validation included); deploy conditionally on
+# `tag_action`:
+#   create  → mike deploy <version> + move `latest` alias (real release)
+#   skip    → mike deploy `dev` alias (state of main between releases)
+#   preview → mike deploy WITHOUT --push (validate the versioning config only)
+# Pull requests build only, never deploy.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/04-docs.yml"
+  workflow_dispatch:
+    inputs:
+      tag_action:
+        description: "create = deploy + move `latest` (pushes) | skip = deploy `dev` | preview = build only"
+        required: true
+        type: choice
+        default: preview
+        options:
+          - preview
+          - skip
+          - create
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        type: string
+      tag_action:
+        description: "create | skip | preview"
+        required: false
+        type: string
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Build and Deploy Docs
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # mike pushes the built site to the gh-pages branch
+
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      # Pinned for the same reason as in 01-ci: uv would otherwise pick the
+      # newest interpreter satisfying requires-python and build grimp from
+      # source on 3.15.
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - run: uv sync --frozen --group docs --group test
+
+      - name: Generate coverage report
+        run: uv run --frozen poe docs-coverage
+
+      - name: Enforce import contracts
+        run: uv run --frozen poe imports
+
+      - name: Generate architecture graph
+        run: |
+          if [ -f ".scripts/dev/generate_architecture_graph.py" ]; then
+            uv run --frozen poe graph
+          fi
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4
+        with:
+          config: cliff.toml
+          args: --output docs/changelog.md
+
+      - name: Resolve docs version
+        id: docs_version
+        env:
+          INPUT_VERSION: ${{ inputs.version || '' }}
+        run: |
+          VERSION="$INPUT_VERSION"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Configure git for mike
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # create → publish the versioned release + move `latest`. Keyed on the
+      # INPUT only: an `event_name == 'workflow_dispatch'` escape hatch would
+      # push `latest` and `set-default` from an arbitrary ref, so a manual
+      # dispatch defaults to `preview` and must opt in explicitly.
+      - name: Deploy release docs (create)
+        if: inputs.tag_action == 'create'
+        env:
+          DOCS_VERSION: ${{ steps.docs_version.outputs.version }}
+        run: |
+          uv run --frozen mike deploy --push --update-aliases "$DOCS_VERSION" latest
+          uv run --frozen mike set-default --push latest
+
+      # skip → refresh the `dev` alias so main stays visible between releases.
+      - name: Deploy dev docs (skip)
+        if: inputs.tag_action == 'skip'
+        run: uv run --frozen mike deploy --push --update-aliases dev
+
+      # preview → build the versioned site WITHOUT pushing, to validate config.
+      - name: Validate docs build (preview)
+        if: inputs.tag_action == 'preview'
+        env:
+          DOCS_VERSION: ${{ steps.docs_version.outputs.version }}
+        run: uv run --frozen mike deploy --update-aliases "$DOCS_VERSION" latest
+
+      - name: Build-only summary
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## 🔎 Docs — build check only" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Pull request: build and checks completed, deploy skipped." >> "$GITHUB_STEP_SUMMARY"
