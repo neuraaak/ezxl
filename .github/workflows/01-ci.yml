@@ -1,9 +1,10 @@
 name: 01 · CI
 
-# Quality gate: lint/format, type-check/import-contracts and security run first
-# and block the test matrix. Runs on PRs, and as the release gate via
-# workflow_call from 02-tag-sync (no bare `push` trigger → one CI run per
-# change, no double runs).
+# Quality gate: lint/format and type-check/import-contracts run first and block
+# the test matrix, which runs on Ubuntu and Windows. Security runs alongside
+# them: it gates the workflow, not the matrix. Runs on PRs, and as the release
+# gate via workflow_call from 02-tag-sync (no bare `push` trigger → one CI run
+# per change, no double runs).
 
 on:
   pull_request:
@@ -81,15 +82,20 @@ jobs:
       - run: uv run --frozen poe security
 
   test:
-    name: Tests (Python ${{ matrix.python }})
-    needs: [lint, type-check, security]
-    runs-on: ubuntu-24.04
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: [lint, type-check]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
+        # Windows is the product's target OS (AGENTS.md): pywin32 and pywinauto
+        # only install there, so the platform guard and the COM-adjacent import
+        # surface are exercised nowhere else. Ubuntu stays the reference matrix
+        # for coverage, and proves the cross-platform modules stay importable.
+        os: [ubuntu-24.04, windows-latest]
         python: ["3.13"]
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -98,12 +104,13 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --frozen --group dev
-      # `poe test-ci` deselects the `excel` marker (live Excel over COM,
-      # Windows-only) and carries the coverage threshold, which is deliberately
-      # not in addopts: a partial local run must not exit with code 1.
+      # `poe test-ci` deselects the `excel` marker (live Excel over COM: no
+      # runner has an Excel installation) and carries the coverage threshold,
+      # which is deliberately not in addopts: a partial local run must not
+      # exit with code 1.
       - run: uv run --frozen poe test-ci
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
+        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.13' && always()
         with:
           name: coverage-report
           path: |

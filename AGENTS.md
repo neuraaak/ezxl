@@ -206,6 +206,7 @@ Numbered reusable workflows, one responsibility each, chained on push to `main`:
 ```text
 00-install-deps  # primes the uv cache (keyed on uv.lock)
 01-ci            # lint | type-check | security -> test matrix; the quality gate
+                 #   the matrix runs on Ubuntu and Windows
 02-tag-sync      # orchestrator: CI gate -> tag_action -> cascade 03 then 04
 03-publish       # build always; upload to PyPI on `create` only (OIDC)
 04-docs          # build always; deploy latest / dev / none by tag_action

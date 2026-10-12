@@ -6,6 +6,8 @@ order. The number sorts them in the file tree and documents the cascade.
 ```text
 00-install-deps  ← primes the uv cache (keyed on uv.lock)
 01-ci            ← lint ∥ type-check ∥ security → test matrix; the quality gate
+                   (the matrix runs Ubuntu + Windows; security gates the
+                    workflow, not the matrix)
 02-tag-sync      ← orchestrator: CI gate → tag_action → cascade 03 then 04
 03-publish       ← build always; upload to PyPI on `create` only (OIDC)
 04-docs          ← build always; deploy latest / dev / none by tag_action
