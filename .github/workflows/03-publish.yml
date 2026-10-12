@@ -1,15 +1,33 @@
-name: Publish to PyPI
+name: 03 · Publish to PyPI
+
+# Build + package on every mode; upload to PyPI only when `tag_action` is
+# `create` (a real release). Gating is keyed on the `tag_action` INPUT, never on
+# github.event_name: in a reusable workflow the event is inherited from the
+# caller (`push`), so an `event_name == 'workflow_call'` check never matches —
+# and an `event_name == 'workflow_dispatch'` escape hatch would let a manual run
+# from an arbitrary ref fire the irreversible PyPI upload. A manual dispatch
+# therefore defaults to `preview` and must opt in explicitly.
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_action:
+        description: "create = publish to PyPI (irreversible) | preview = build only"
+        required: true
+        type: choice
+        default: preview
+        options:
+          - preview
+          - create
   workflow_call:
     inputs:
       version:
         required: true
         type: string
-      tag:
-        required: true
+      tag_action:
+        required: false
         type: string
+        default: create # create | preview
 
 permissions: {}
 
@@ -41,20 +59,24 @@ jobs:
           if [ -z "$VERSION" ]; then
             VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION"
 
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
 
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
 
       - name: Enforce import contracts
-        run: PYTHONPATH=src uv run --frozen lint-imports
+        run: uv run --frozen poe imports
 
       - name: Build package
-        run: uv build
+        run: uv run --frozen poe build
 
       - name: Check package
         run: uv run --frozen twine check dist/*
@@ -89,7 +111,7 @@ jobs:
   publish:
     name: Publish to PyPI (OIDC)
     needs: validate
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    if: inputs.tag_action == 'create'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -104,18 +126,18 @@ jobs:
           name: dist
           path: dist/
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           verbose: true
           # Attestations disabled: when called as a reusable workflow from
-          # auto-tag.yml, the OIDC token's Build Config URI reflects the
-          # caller (auto-tag.yml) rather than this workflow, causing PyPI
-          # Trusted Publisher verification to fail.
+          # 02-tag-sync.yml, the OIDC token's Build Config URI reflects the
+          # caller rather than this workflow, causing PyPI Trusted Publisher
+          # verification to fail.
           attestations: false
 
       - name: Summary
         run: |
-          echo "## 📦 Published to PyPI" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package**: ${{ env.PACKAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: https://pypi.org/project/${{ env.PACKAGE_NAME }}/${{ needs.validate.outputs.version }}/" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Published to PyPI" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package**: ${{ env.PACKAGE_NAME }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: ${{ needs.validate.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL**: https://pypi.org/project/${{ env.PACKAGE_NAME }}/${{ needs.validate.outputs.version }}/" >> "$GITHUB_STEP_SUMMARY"
