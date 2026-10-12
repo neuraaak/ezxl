@@ -134,19 +134,24 @@ If you only need the fast code-quality loop during feature work:
 
 EzXl centralizes runtime-only `pywintypes` members in compatibility helpers so that `ty` and `pyright` can type-check the COM boundary without scattered local workarounds.
 
-If you need to bump the release version:
+If you need to bump the release version, edit `version` under `[project]` in
+`pyproject.toml` — it is the single source of truth — then sync `_version.py`
+from it:
 
 === "pip"
 
     ```bash
-    python .scripts/dev/update_version.py 1.2.0
+    python .scripts/dev/update_version.py
     ```
 
 === "uv"
 
     ```bash
-    uv run poe version 1.2.0
+    uv run poe version
     ```
+
+The `sync-version` pre-commit hook runs the same script, so a bump committed
+without this step is corrected at commit time.
 
 ## ✅ Result
 
