@@ -39,8 +39,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      # python-version is pinned on every setup-uv step: left to itself, uv
+      # resolves the newest interpreter satisfying requires-python (>=3.13) and
+      # the runners now offer 3.15, for which native dependencies such as grimp
+      # have no wheel — the source build then fails in PyO3.
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
+          python-version: "3.13"
           enable-cache: true
       - run: uv sync --frozen --group dev
       - run: uv run --frozen poe lint
@@ -57,6 +62,7 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
+          python-version: "3.13"
           enable-cache: true
       - run: uv sync --frozen --group dev
       # pyright targets pythonPlatform = "Windows" so win32com/ctypes.windll
@@ -77,6 +83,7 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
+          python-version: "3.13"
           enable-cache: true
       - run: uv sync --frozen --group dev
       - run: uv run --frozen poe security
