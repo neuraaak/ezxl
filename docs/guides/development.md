@@ -10,19 +10,21 @@ Use this guide to create a contributor-ready workspace with the current lint, ty
 
 ## 📝 Steps
 
-1. Sync the workspace with all contributor extras.
+1. Sync the workspace with every contributor dependency group.
 
     === "pip"
 
         ```bash
-        pip install -e ".[dev,test,docs]"
+        pip install -e . --group dev
         ```
 
     === "uv"
 
         ```bash
-        uv sync --extra dev --extra test --extra docs
+        uv sync --all-groups
         ```
+
+    The groups follow [PEP 735](https://peps.python.org/pep-0735/): `test`, `docs`, and `dev` (which includes both). `pip install --group` needs pip 25.1 or later.
 
 2. Install the git hooks managed by `pre-commit`.
 
@@ -43,15 +45,15 @@ Use this guide to create a contributor-ready workspace with the current lint, ty
     === "pip"
 
         ```bash
-        ruff format .
-        ruff check .
+        ruff format src tests
+        ruff check src tests
         ```
 
     === "uv"
 
         ```bash
-        uv run ruff format .
-        uv run ruff check .
+        uv run poe format
+        uv run poe lint
         ```
 
 4. Run both configured type checkers.
@@ -59,15 +61,14 @@ Use this guide to create a contributor-ready workspace with the current lint, ty
     === "pip"
 
         ```bash
+        pyright
         ty check
-        pyright src/
         ```
 
     === "uv"
 
         ```bash
-        uv run ty check
-        uv run pyright src/
+        uv run poe typecheck
         ```
 
 5. Enforce the import-layer contract.
@@ -81,14 +82,15 @@ Use this guide to create a contributor-ready workspace with the current lint, ty
     === "uv"
 
         ```bash
-        uv run lint-imports
+        uv run poe imports
         ```
 
-6. Build the distributable artifacts.
+6. Run the test suite, then build the distributable artifacts.
 
     === "pip"
 
         ```bash
+        pytest -m "not excel"
         python -m build
         twine check dist/*
         ```
@@ -96,9 +98,21 @@ Use this guide to create a contributor-ready workspace with the current lint, ty
     === "uv"
 
         ```bash
-        uv build
+        uv run poe test-ci
+        uv run poe build
         uv run twine check dist/*
         ```
+
+    `poe test-ci` is exactly what CI runs: it deselects the `excel` marker
+    (those tests drive a live Excel instance over COM) and applies the
+    coverage threshold.
+
+7. Replay the whole gate in one command before opening a pull request.
+
+    ```bash
+    uv run poe check     # format-check -> lint -> typecheck -> imports -> test
+    uv run poe security  # bandit + pip-audit
+    ```
 
 ## Variations
 
@@ -114,8 +128,8 @@ If you only need the fast code-quality loop during feature work:
 === "uv"
 
     ```bash
-    uv run ruff check . --fix
-    uv run ty check
+    uv run poe lint-fix
+    uv run poe typecheck
     ```
 
 EzXl centralizes runtime-only `pywintypes` members in compatibility helpers so that `ty` and `pyright` can type-check the COM boundary without scattered local workarounds.
@@ -131,7 +145,7 @@ If you need to bump the release version:
 === "uv"
 
     ```bash
-    uv run python .scripts/dev/update_version.py 1.2.0
+    uv run poe version 1.2.0
     ```
 
 ## ✅ Result

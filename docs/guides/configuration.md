@@ -34,7 +34,7 @@ Use this guide to install EzXl in a local Windows environment, an offline corpor
     === "Contributor workspace"
 
         ```bash
-        uv sync --extra dev --extra test --extra docs
+        uv sync --all-groups
         ```
 
     === "Offline wheels"
@@ -70,7 +70,7 @@ pip install --proxy http://proxy.corp.example.com:8080 ezxl
 If you only need to build the documentation locally:
 
 ```bash
-uv sync --extra docs
+uv sync --group docs
 uv run mkdocs serve
 ```
 
