@@ -115,7 +115,13 @@ def wrap_com_error[**FuncP, FuncR](
         except Exception as exc:
             if isinstance(exc, COM_EXCEPTION_TYPE):
                 first_arg: object = exc.args[0] if exc.args else 0
-                hresult: int = first_arg if isinstance(first_arg, int) else 0
+                # pywin32 delivers the HRESULT as a *signed* 32-bit int
+                # (RPC_E_DISCONNECTED arrives as -2147417848), while the
+                # constants below are unsigned. Mask before comparing, or the
+                # lookup never matches and the hex formatting prints garbage.
+                hresult: int = (
+                    (first_arg & 0xFFFFFFFF) if isinstance(first_arg, int) else 0
+                )
                 if hresult in _DISCONNECTED_HRESULTS:
                     raise ExcelSessionLostError(
                         f"Excel COM session lost (HRESULT 0x{hresult:08X}): {exc}",
