@@ -37,28 +37,37 @@ Use this guide to run the current pytest suite, generate the coverage artifacts 
         uv run pytest --cov=src/ezxl --cov-report=xml --cov-report=html -m "not excel"
         ```
 
-3. Use the helper script when you want a preset test mode.
+3. Use a `poe` task when you want a preset test mode.
 
     === "pip"
 
         ```bash
-        python tests/run_tests.py --type unit --verbose
+        poe test-unit    # unit tests only
+        poe test-fast    # parallel, skips slow and excel
+        poe test-ci      # what CI runs, with the coverage gate
         ```
 
     === "uv"
 
         ```bash
-        uv run python tests/run_tests.py --type unit --verbose
+        uv run poe test-unit
+        uv run poe test-fast
+        uv run poe test-ci
         ```
 
 ## 🧪 Current suite
 
-- [x] Unit tests for converters, exceptions, exported symbols, and GUI protocols
-- [x] Marker registration for `unit`, `integration`, `slow`, and `excel`
-- [ ] Committed Excel integration scenarios in `tests/integration/`
+- [x] Unit tests for converters, formatters, exceptions, exported symbols, and GUI protocols
+- [x] Unit tests for the CLI (`click.testing.CliRunner`) and the COM error-translation helpers
+- [x] Marker registration for `unit`, `integration`, `slow`, `cli`, and `excel`
+- [ ] Committed Excel scenarios behind `@pytest.mark.excel`
 
 ??? note "🧪 Current repository scope"
-     The `integration` and `excel` markers are already part of the test contract, but the committed suite in this repository is currently centered on `tests/unit/`. Keep the markers when you add new coverage so CI and local filtering stay consistent.
+     Every committed test lives in `tests/unit/`. The COM proxies in `core/` are
+     excluded from the coverage gate because they need a running Excel; everything
+     else is measured. A test that does need Excel is marked `@pytest.mark.excel`
+     wherever it sits, which is what keeps it out of CI — the directory it lives in
+     plays no part.
 
 ## ✏️ Add a new test
 
