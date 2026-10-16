@@ -238,6 +238,11 @@ class WorkbookProxy:
             wb.ExportAsFixedFormat(0, str(dest))
         else:
             wb.SaveAs(str(dest), FileFormat=file_format)
+            # SaveAs renames the open workbook. This proxy resolves itself by
+            # name on every call, so without this the next call on it raises
+            # WorkbookNotFoundError. The PDF branch exports a copy and leaves
+            # the workbook's name alone.
+            self._name = dest.name
 
         printer.success(f"Workbook saved as: {dest}")
 
