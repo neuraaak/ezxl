@@ -53,12 +53,16 @@ tests/
 Enforced by `import-linter` in CI. **Never violate this dependency order:**
 
 ```text
-cli  →  core | gui  →  io | utils  →  exceptions
+cli  →  core  →  gui  →  io | utils  →  exceptions
 ```
 
 - `exceptions` has no internal imports.
 - `io` and `utils` must not import from `core`, `gui`, or `cli`.
-- `core` and `gui` must not import from `cli`.
+- `gui` must not import from `core` or `cli` — it types the application
+  through the `ExcelAppLike` protocol instead.
+- `core` may import `gui` (`ExcelApp.gui` builds a `GUIProxy`), and does so
+  inside the property so the GUI backends are not pulled into every `core`
+  import.
 - Cross-cutting imports trigger a CI failure (`lint-imports`).
 
 ---

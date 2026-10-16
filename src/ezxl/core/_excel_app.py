@@ -27,7 +27,6 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
-import importlib
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -373,10 +372,13 @@ class ExcelApp:
             ...     xl.gui.ribbon.execute("FileSave")
             ...     path = xl.gui.dialog.get_file_open()
         """
+        # Imported here rather than at module scope: gui imports nothing from
+        # core, so the layer contract allows core -> gui, but a top-level
+        # import would still drag the GUI backends into every core import.
+        from ..gui._gui_proxy import GUIProxy
+
         self._check_thread()
-        module = importlib.import_module("ezxl.gui._gui_proxy")
-        gui_proxy_cls = module.GUIProxy
-        return gui_proxy_cls(self)
+        return GUIProxy(self)
 
     @property
     @wrap_com_error

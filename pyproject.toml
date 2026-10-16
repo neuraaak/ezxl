@@ -391,9 +391,14 @@ root_packages = ["ezxl"]
 [[tool.importlinter.contracts]]
 name = "layer dependency flow"
 type = "layers"
+# core sits above gui: ExcelApp.gui builds a GUIProxy, while gui imports
+# nothing from core (it types the app through the ExcelAppLike Protocol).
+# Declaring them as independent siblings was only true because the import was
+# hidden in an importlib string, which the linter cannot see.
 layers = [
     "ezxl.cli",
-    "ezxl.core | ezxl.gui",
+    "ezxl.core",
+    "ezxl.gui",
     "ezxl.io | ezxl.utils",
     "ezxl.exceptions",
 ]
