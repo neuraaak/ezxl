@@ -143,7 +143,7 @@ def test_should_raise_formatter_error_when_workbook_open_fails(
 ) -> None:
     """Verify that workbook-open failures are wrapped in ``FormatterError``."""
 
-    def _raise_open_error(_path: Path) -> None:
+    def _raise_open_error(_path: Path, **_kwargs: object) -> None:
         raise OSError("boom")
 
     monkeypatch.setattr(_formatters.openpyxl, "load_workbook", _raise_open_error)
@@ -169,7 +169,7 @@ def test_should_raise_formatter_error_when_workbook_has_no_active_sheet(
     monkeypatch.setattr(
         _formatters.openpyxl,
         "load_workbook",
-        lambda _path: _WorkbookWithoutActiveSheet(),
+        lambda _path, **_kwargs: _WorkbookWithoutActiveSheet(),
     )
 
     with pytest.raises(FormatterError, match="has no active sheet"):
@@ -197,7 +197,9 @@ def test_should_raise_formatter_error_when_save_fails(
     def _raise_save_error(_dest: str) -> None:
         raise PermissionError("locked")
 
-    monkeypatch.setattr(_formatters.openpyxl, "load_workbook", lambda _path: workbook)
+    monkeypatch.setattr(
+        _formatters.openpyxl, "load_workbook", lambda _path, **_kwargs: workbook
+    )
     monkeypatch.setattr(workbook, "save", _raise_save_error)
 
     with pytest.raises(
@@ -206,3 +208,81 @@ def test_should_raise_formatter_error_when_save_fails(
         ExcelFormatter(sample_xlsx).column_width("A", 15).save()
 
     assert isinstance(exc_info.value.cause, PermissionError)
+
+
+# ///////////////////////////////////////////////////////////////
+# TESTS — style preservation & write safety
+# ///////////////////////////////////////////////////////////////
+
+
+@pytest.mark.unit
+def test_should_preserve_unspecified_font_properties_when_setting_size(
+    sample_xlsx: Path,
+) -> None:
+    """Verify that ``font()`` merges into the cell's font instead of replacing it.
+
+    Regression guard: building a fresh ``Font()`` reset every property the
+    caller did not pass — bold, name and underline were silently dropped when
+    only the size was changed.
+    """
+    workbook = openpyxl.load_workbook(sample_xlsx)
+    sheet = workbook.active
+    assert sheet is not None
+    sheet["A1"].font = openpyxl.styles.Font(
+        bold=True, name="Arial", size=16, underline="single"
+    )
+    workbook.save(sample_xlsx)
+
+    ExcelFormatter(sample_xlsx).font("A1", size=20).save()
+
+    font = openpyxl.load_workbook(sample_xlsx)["Sheet1"]["A1"].font
+    assert font.size == 20
+    assert font.bold is True
+    assert font.name == "Arial"
+    assert font.underline == "single"
+
+
+@pytest.mark.unit
+def test_should_apply_requested_font_properties_when_setting_them(
+    sample_xlsx: Path,
+) -> None:
+    """Merging must not stop an explicit value from being written."""
+    ExcelFormatter(sample_xlsx).font(
+        "A1", bold=True, italic=True, size=11, color="FF0000"
+    ).save()
+
+    font = openpyxl.load_workbook(sample_xlsx)["Sheet1"]["A1"].font
+    assert (font.bold, font.italic, font.size) == (True, True, 11)
+    assert font.color is not None
+    # openpyxl normalises a 6-digit hex to ARGB; Excel ignores the alpha byte.
+    assert str(font.color.rgb).endswith("FF0000")
+
+
+@pytest.mark.unit
+def test_should_leave_source_intact_when_save_fails_midwrite(
+    sample_xlsx: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify the in-place save is atomic.
+
+    Regression guard: openpyxl opens the destination with ``ZipFile(path, "w")``,
+    which truncates it before writing. A failure mid-write used to leave no
+    original and no usable copy.
+    """
+    original = sample_xlsx.read_bytes()
+
+    def _raise_save_error(dest: str) -> None:
+        # Mimic openpyxl: truncate the target it was handed, then fail.
+        Path(dest).write_bytes(b"")
+        raise OSError("disk full")
+
+    workbook = openpyxl.load_workbook(sample_xlsx)
+    monkeypatch.setattr(
+        _formatters.openpyxl, "load_workbook", lambda _path, **_kwargs: workbook
+    )
+    monkeypatch.setattr(workbook, "save", _raise_save_error)
+
+    with pytest.raises(FormatterError):
+        ExcelFormatter(sample_xlsx).fill("A1", "FFFF00").save()
+
+    assert sample_xlsx.read_bytes() == original
+    assert not list(sample_xlsx.parent.glob("*.ezxl-tmp"))
