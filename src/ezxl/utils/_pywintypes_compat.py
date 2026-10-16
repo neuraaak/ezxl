@@ -29,9 +29,8 @@ import pywintypes
 _PYWINTYPES_ANY = cast(Any, pywintypes)
 
 COM_TIME_TYPE: type = cast(type, _PYWINTYPES_ANY.TimeType)
-COM_ERROR_TYPE: type[BaseException] = cast(type[BaseException], _PYWINTYPES_ANY.error)
 COM_EXCEPTION_TYPE: type[BaseException] = cast(
     type[BaseException], _PYWINTYPES_ANY.com_error
 )
 
-__all__ = ["COM_ERROR_TYPE", "COM_EXCEPTION_TYPE", "COM_TIME_TYPE"]
+__all__ = ["COM_EXCEPTION_TYPE", "COM_TIME_TYPE"]
