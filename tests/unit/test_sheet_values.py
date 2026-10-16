@@ -83,24 +83,41 @@ def test_should_pass_through_when_value_is_plain_data() -> None:
 # ///////////////////////////////////////////////////////////////
 
 
-def test_should_preserve_microseconds_and_tzinfo_when_converting_a_com_date() -> None:
-    """Verify the conversion keeps every field COM provided.
+def test_should_preserve_microseconds_when_converting_a_com_date() -> None:
+    """Verify the conversion keeps the sub-second part.
 
     Regression guard: the conversion rebuilt the value from year..second only,
-    discarding microseconds and the time zone, which shifted timestamped data.
+    truncating microseconds on timestamped data.
+    """
+    from ezxl.core._sheet import _normalise_cell_value
+    from ezxl.utils._pywintypes_compat import COM_TIME_TYPE
+
+    result = _normalise_cell_value(COM_TIME_TYPE(2026, 10, 17, 14, 30, 45, 123456))
+
+    assert isinstance(result, datetime)
+    assert result.microsecond == 123456
+    assert result == datetime(2026, 10, 17, 14, 30, 45, 123456)
+
+
+def test_should_return_a_naive_datetime_when_com_date_carries_a_timezone() -> None:
+    """An Excel date has no zone, so the COM-supplied one must be dropped.
+
+    Real Excel hands back pywintypes.datetime carrying the machine's
+    TimeZoneInfo. Keeping it would make the result tz-aware and raise
+    "can't compare offset-naive and offset-aware datetimes" the moment a
+    caller compared a cell date with datetime.now().
     """
     from ezxl.core._sheet import _normalise_cell_value
     from ezxl.utils._pywintypes_compat import COM_TIME_TYPE
 
     tz = timezone(timedelta(hours=2))
-    com_date = COM_TIME_TYPE(2026, 10, 17, 14, 30, 45, 123456, tzinfo=tz)
+    result = _normalise_cell_value(COM_TIME_TYPE(2026, 10, 17, 14, 30, 45, tzinfo=tz))
 
-    result = _normalise_cell_value(com_date)
-
-    assert isinstance(result, datetime)
-    assert result.microsecond == 123456
-    assert result.tzinfo == tz
-    assert result == com_date
+    assert result.tzinfo is None
+    # The wall clock the cell displays is preserved, unshifted.
+    assert result == datetime(2026, 10, 17, 14, 30, 45)
+    # And it still compares against a naive datetime, as it always did.
+    assert result > datetime(2020, 1, 1)
 
 
 def test_should_return_a_plain_datetime_when_given_a_com_date() -> None:

@@ -74,9 +74,16 @@ def _normalise_cell_value(value: Any) -> Any:
     if value is None:
         return None
 
-    # Normalise COM dates to stdlib datetime. microsecond and tzinfo are
-    # carried over: pywintypes.datetime keeps both, and dropping them silently
-    # shifted timestamped data.
+    # Normalise COM dates to stdlib datetime, keeping microseconds — they were
+    # being dropped, which silently truncated timestamped data.
+    #
+    # tzinfo is deliberately NOT carried over. An Excel date is a naive serial
+    # number with no zone; the TimeZoneInfo pywintypes attaches is an artifact
+    # of the VT_DATE conversion and reflects the machine's locale, not the
+    # author's intent. Propagating it would also make the value tz-aware, so a
+    # caller comparing a cell date against datetime.now() would get
+    # "can't compare offset-naive and offset-aware datetimes". The naive value
+    # is exactly the wall clock the cell displays.
     if _is_com_date(value):
         try:
             return datetime(
@@ -87,7 +94,6 @@ def _normalise_cell_value(value: Any) -> Any:
                 value.minute,
                 value.second,
                 value.microsecond,
-                tzinfo=value.tzinfo,
             )
         except Exception as exc:
             logger.warning("Failed to convert COM date %r to datetime: %s", value, exc)
