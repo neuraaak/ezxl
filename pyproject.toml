@@ -432,7 +432,6 @@ python_functions = ["test_*"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
-    "robustness: marks tests as robustness tests",
     "unit: marks tests as unit tests (default)",
     "cli: marks tests related to CLI",
     "excel: marks tests requiring a live Excel installation (deselect with '-m not excel')",
@@ -466,13 +465,13 @@ omit = [
     "docs/*",
     "examples/*",
     "_temp/*",
-    # CLI entry points: tested via e2e/smoke tests, not unit tests
-    "src/ezxl/cli/*",
-    # COM/live-Excel modules — require a running Excel instance (excluded from CI)
+    # COM/live-Excel modules — require a running Excel instance (excluded from
+    # CI). Everything omitted here is invisible to the --cov-fail-under gate,
+    # so keep the list to modules that genuinely cannot run without Excel:
+    # _com_utils.py and cli/ were omitted and are not in that category.
     "*/core/_excel_app.py",
     "*/core/_workbook.py",
     "*/core/_sheet.py",
-    "*/utils/_com_utils.py",
     # win32com GUI backends — require COM and a live Excel window
     "*/gui/win32com/*",
     "*/gui/_gui_proxy.py",
