@@ -24,7 +24,16 @@ license = { text = "MIT" }
 requires-python = ">=3.13"
 authors = [{ name = "Neuraaak" }]
 maintainers = [{ name = "Neuraaak" }]
-keywords = ["excel", "automation", "com", "openpyxl", "xlsx", "win32com", "spreadsheet", "office"]
+keywords = [
+    "excel",
+    "automation",
+    "com",
+    "openpyxl",
+    "xlsx",
+    "win32com",
+    "spreadsheet",
+    "office",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
@@ -157,6 +166,9 @@ docs-build = "mkdocs build --strict"
 docs-coverage = "pytest -m 'not excel' --cov=src/ezxl --cov-report=html --cov-report=xml -q"
 graph = "python .scripts/dev/generate_architecture_graph.py"
 version = "python .scripts/dev/update_version.py"
+# Single source for the version in CI: 02, 03 and 04 all read it this way
+# instead of each re-implementing a grep/sed over pyproject.toml.
+read-version = '''python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"'''
 build = "uv build"
 
 [tool.poe.tasks.imports]

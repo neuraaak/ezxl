@@ -1,4 +1,4 @@
-name: 03 · Publish to PyPI
+name: 03 · Publish
 
 # Build + package on every mode; upload to PyPI only when `tag_action` is
 # `create` (a real release). Gating is keyed on the `tag_action` INPUT, never on
@@ -32,7 +32,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish
   cancel-in-progress: false
 
 env:
@@ -40,8 +40,9 @@ env:
 
 jobs:
   validate:
-    name: Validate & Build
+    name: Validate & build
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -49,22 +50,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
-
-      - name: Resolve version
-        id: version
-        env:
-          INPUT_VERSION: ${{ inputs.version || '' }}
-        run: |
-          VERSION="$INPUT_VERSION"
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
-          fi
-          if [ -z "$VERSION" ]; then
-            echo "::error::No version found in pyproject.toml"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
 
       # Pinned for the same reason as in 01-ci: uv would otherwise pick the
       # newest interpreter satisfying requires-python and build grimp from
@@ -76,16 +61,36 @@ jobs:
 
       - run: uv sync --frozen --group dev
 
+      # The caller's input must agree with pyproject.toml, or the artifact would
+      # be published under a number that is not the one the tag points at.
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version || '' }}
+        run: |
+          FILE_VERSION=$(uv run --frozen poe -q read-version)
+          VERSION="${INPUT_VERSION:-$FILE_VERSION}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          if [ "$VERSION" != "$FILE_VERSION" ]; then
+            echo "::error::Version mismatch: input $VERSION vs pyproject.toml $FILE_VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
       - name: Enforce import contracts
         run: uv run --frozen poe imports
 
       - name: Build package
         run: uv run --frozen poe build
 
-      - name: Check package
+      - name: Verify package metadata
         run: uv run --frozen twine check dist/*
 
-      - name: Verify wheel installation
+      - name: Verify package contents
         run: |
           python -m zipfile -t dist/*.whl
           python - <<'PY'
@@ -113,10 +118,11 @@ jobs:
           retention-days: 1
 
   publish:
-    name: Publish to PyPI (OIDC)
+    name: Publish (PyPI)
     needs: validate
     if: inputs.tag_action == 'create'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -130,9 +136,14 @@ jobs:
           name: dist
           path: dist/
 
-      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+      - name: Publish (OIDC)
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           verbose: true
+          # Replay-safe: 02-tag-sync creates the tag before this job runs, so a
+          # release whose upload failed is recovered by dispatching 03 again.
+          # Without this, the replay would 409 on the already-present version.
+          skip-existing: true
           # Attestations disabled: when called as a reusable workflow from
           # 02-tag-sync.yml, the OIDC token's Build Config URI reflects the
           # caller rather than this workflow, causing PyPI Trusted Publisher
