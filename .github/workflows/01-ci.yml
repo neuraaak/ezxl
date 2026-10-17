@@ -99,8 +99,9 @@ jobs:
       matrix:
         # Windows is the product's target OS (AGENTS.md): pywin32 and pywinauto
         # only install there, so the platform guard and the COM-adjacent import
-        # surface are exercised nowhere else. Ubuntu stays the reference matrix
-        # for coverage, and proves the cross-platform modules stay importable.
+        # surface are exercised nowhere else. That also makes Windows the only
+        # runner where the coverage total is meaningful, so it carries the gate.
+        # Ubuntu proves the cross-platform modules stay importable.
         os: [ubuntu-24.04, windows-latest]
         python: ["3.13"]
     steps:
@@ -110,11 +111,14 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --frozen --group dev
-      # `poe test-ci` deselects the `excel` marker (live Excel over COM: no
-      # runner has an Excel installation) and carries the coverage threshold,
-      # which is deliberately not in addopts: a partial local run must not
-      # exit with code 1.
+      # Both tasks deselect the `excel` marker (live Excel over COM: no runner
+      # has an Excel installation). Only the Windows leg enforces the 85%
+      # threshold: on Linux the win32-only modules never import, so the total
+      # lands around 80% however well the testable code is covered.
       - run: uv run --frozen poe test-ci
+        if: runner.os == 'Windows'
+      - run: uv run --frozen poe test-ci-nogate
+        if: runner.os != 'Windows'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.13' && always()
         with:

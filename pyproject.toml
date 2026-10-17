@@ -158,7 +158,11 @@ security = { help = "Run Bandit and audit locked dependencies", sequence = [
 test = "pytest"
 # The `excel` marker drives a live Excel instance over COM: Windows-only,
 # excluded from every CI run and from the coverage gate.
+# Windows is the only OS where every module imports, so it is the only one
+# where the total is meaningful: _com_utils and _pywintypes_compat are
+# win32-only and score 0% on Linux. 01-ci picks the task per runner.
 test-ci = "pytest -m 'not excel' --cov-fail-under=85"
+test-ci-nogate = "pytest -m 'not excel' --cov-fail-under=0"
 test-unit = "pytest -m unit"
 test-fast = "pytest -n auto -m 'not slow and not excel'"
 docs = "mkdocs serve"
@@ -496,7 +500,9 @@ exclude_lines = [
 ]
 show_missing = true
 precision = 2
-fail_under = 85
+# No `fail_under` here on purpose: it would apply to every coverage run,
+# including `docs-coverage`, which only produces htmlcov/ as a docs input.
+# The threshold belongs to the gate that wants it — see `test-ci`.
 
 [tool.coverage.html]
 directory = "htmlcov"
