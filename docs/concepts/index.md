@@ -20,6 +20,22 @@ flowchart LR
 
 This split keeps file conversion and formatting usable even on machines where Excel is unavailable or undesirable in automation pipelines.
 
+## 📦 Session modes and ownership
+
+`ExcelApp` offers three ways to obtain a COM session, because "automating
+Excel" covers two different situations: a batch job that wants its own
+process, and a helper that acts on the workbook the user is looking at.
+
+| Mode         | Session used                                              | Started by EzXl |
+| :----------- | :-------------------------------------------------------- | :-------------- |
+| `"dispatch"` | A new, private instance                                   | Yes             |
+| `"attach"`   | The running instance, or `ExcelNotAvailableError`         | No              |
+| `"auto"`     | The running instance if there is one, otherwise a new one | Sometimes       |
+
+Ownership follows from that column: leaving the context manager quits Excel
+only when EzXl started it. A session EzXl merely attached to is released,
+never closed, so the user never loses unsaved work to a script exiting.
+
 ## 📦 Why the GUI layer is pluggable
 
 The GUI layer exposes contracts for ribbon, menu, dialog, keys, and Backstage navigation because these surfaces can require different automation strategies. COM works well for direct Excel object model interactions, while UI Automation can still be useful for visual Backstage navigation and targeted keystroke flows.

@@ -4,13 +4,17 @@ Curated index of the public `ezxl` API exported from the top-level package.
 
 ## 📦 COM automation
 
-| Symbol                                                   | Description                                                     |
-| :------------------------------------------------------- | :-------------------------------------------------------------- |
-| [`ExcelApp`](reference/index.md#ezxl.ExcelApp)           | Entry point for a live Excel COM session.                       |
-| [`WorkbookProxy`](reference/index.md#ezxl.WorkbookProxy) | Workbook-level operations such as open, save, and sheet lookup. |
-| [`SheetProxy`](reference/index.md#ezxl.SheetProxy)       | Worksheet navigation plus cell and range access.                |
-| [`CellProxy`](reference/index.md#ezxl.CellProxy)         | Single-cell read and write access.                              |
-| [`RangeProxy`](reference/index.md#ezxl.RangeProxy)       | Rectangular range access for bulk values.                       |
+| Symbol                                                   | Description                                                                 |
+| :------------------------------------------------------- | :-------------------------------------------------------------------------- |
+| [`ExcelApp`](reference/index.md#ezxl.ExcelApp)           | Entry point for a live Excel COM session (`dispatch`, `attach`, or `auto`). |
+| [`WorkbookProxy`](reference/index.md#ezxl.WorkbookProxy) | Workbook-level operations such as open, save, and sheet lookup.             |
+| [`SheetProxy`](reference/index.md#ezxl.SheetProxy)       | Worksheet navigation plus cell and range access.                            |
+| [`CellProxy`](reference/index.md#ezxl.CellProxy)         | Single-cell read and write access.                                          |
+| [`RangeProxy`](reference/index.md#ezxl.RangeProxy)       | Rectangular range access for bulk values.                                   |
+
+!!! note "🕒 Date values are naive"
+    Cell reads return `datetime` objects without `tzinfo`, matching how Excel
+    stores dates. They compare directly with other naive datetimes.
 
 ## 📦 GUI layer
 
