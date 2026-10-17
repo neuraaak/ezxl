@@ -19,6 +19,8 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
+import os
+from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -29,7 +31,7 @@ from ezplog.lib_mode import get_logger, get_printer
 from openpyxl.styles import (
     Alignment,
     Border,
-    Font,
+    Color,
     PatternFill,
     Side,
 )
@@ -63,8 +65,8 @@ class _RowHeightOp:
 @dataclass
 class _FontOp:
     ref: str
-    bold: bool
-    italic: bool
+    bold: bool | None
+    italic: bool | None
     size: int | None
     color: str | None  # hex without '#'
 
@@ -107,6 +109,15 @@ class ExcelFormatter:
     formatter operates on the **active sheet** of the workbook. Consumer
     libraries that need multi-sheet formatting should instantiate one
     ``ExcelFormatter`` per sheet operation.
+
+    Warning:
+        Saving round-trips the file through openpyxl, which does not model
+        every part of an Excel package. Charts survive and still render, but
+        lose their theme styling (``colors*.xml`` / ``style*.xml`` are not
+        rewritten). Pivot tables and embedded objects openpyxl cannot parse
+        are not preserved either. VBA macros **are** kept for ``.xlsm``
+        files. When a workbook carries content that matters, format a copy
+        via ``save(dest)`` rather than overwriting the original.
 
     Args:
         path: Path to an existing ``.xlsx`` workbook file.
@@ -176,18 +187,23 @@ class ExcelFormatter:
         self,
         ref: str,
         *,
-        bold: bool = False,
-        italic: bool = False,
+        bold: bool | None = None,
+        italic: bool | None = None,
         size: int | None = None,
         color: str | None = None,
     ) -> ExcelFormatter:
         """Apply font formatting to a cell or range.
 
+        Every argument left at ``None`` keeps the cell's current value, so
+        properties can be set one call at a time without resetting the others.
+
         Args:
             ref: Cell or range address in A1 notation (e.g. ``"A1"`` or
                 ``"A1:D1"``).
-            bold: Apply bold weight. Defaults to ``False``.
-            italic: Apply italic style. Defaults to ``False``.
+            bold: Apply (``True``) or remove (``False``) bold weight.
+                ``None`` leaves the weight unchanged.
+            italic: Apply (``True``) or remove (``False``) italic style.
+                ``None`` leaves the style unchanged.
             size: Font size in points. ``None`` leaves the size unchanged.
             color: Font colour as a 6-character hex string without ``#``
                 (e.g. ``"FF0000"`` for red). ``None`` leaves colour unchanged.
@@ -294,7 +310,11 @@ class ExcelFormatter:
         )
 
         try:
-            wb = openpyxl.load_workbook(self._path)
+            # keep_vba defaults to False, which would drop vbaProject.bin and
+            # silently de-macro an .xlsm on save.
+            wb = openpyxl.load_workbook(
+                self._path, keep_vba=self._path.suffix.lower() == ".xlsm"
+            )
         except Exception as exc:
             raise FormatterError(
                 f"Failed to open workbook for formatting: {self._path} — {exc}",
@@ -317,16 +337,20 @@ class ExcelFormatter:
                     ws.row_dimensions[op.row].height = op.height
 
                 elif isinstance(op, _FontOp):
-                    font_kwargs: dict[str, Any] = {
-                        "bold": op.bold,
-                        "italic": op.italic,
-                    }
-                    if op.size is not None:
-                        font_kwargs["size"] = op.size
-                    if op.color is not None:
-                        font_kwargs["color"] = op.color
-                    font_style = Font(**font_kwargs)
+                    # Copy the cell's existing font and override only what was
+                    # asked for. Building a fresh Font() would reset every
+                    # property left unspecified — name, underline, strike —
+                    # which contradicts what the public method documents.
                     for cell in _iter_cells(ws, op.ref):
+                        font_style = copy(cell.font)
+                        if op.bold is not None:
+                            font_style.bold = op.bold
+                        if op.italic is not None:
+                            font_style.italic = op.italic
+                        if op.size is not None:
+                            font_style.size = op.size
+                        if op.color is not None:
+                            font_style.color = Color(rgb=op.color)
                         cell.font = font_style
 
                 elif isinstance(op, _FillOp):
@@ -358,9 +382,16 @@ class ExcelFormatter:
 
         out_path = Path(dest).resolve() if dest is not None else self._path
 
+        # openpyxl opens the destination with ZipFile(path, "w"), which
+        # truncates it before writing a byte: an interrupted in-place save
+        # would leave no original and no usable copy. Write beside the target
+        # and swap atomically instead.
+        tmp_path = out_path.with_name(f"{out_path.name}.ezxl-tmp")
         try:
-            wb.save(str(out_path))
+            wb.save(str(tmp_path))
+            os.replace(tmp_path, out_path)
         except Exception as exc:
+            tmp_path.unlink(missing_ok=True)
             raise FormatterError(
                 f"Failed to save formatted workbook to '{out_path}': {exc}",
                 cause=exc,

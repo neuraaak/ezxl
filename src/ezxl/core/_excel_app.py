@@ -27,7 +27,6 @@ from __future__ import annotations
 # IMPORTS
 # ///////////////////////////////////////////////////////////////
 # Standard library imports
-import importlib
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -81,26 +80,43 @@ class ExcelApp:
         # Excel quit automatically
 
     **Manual lifecycle** (long-running sessions, e.g. consumer libraries) —
-    call :meth:`quit` explicitly when done.  In ``attach`` mode, ``quit``
-    is optional; Excel stays running and the Python reference is released::
+    call :meth:`quit` explicitly when done.  On an attached instance
+    ``quit`` is a no-op beyond releasing the reference; Excel keeps
+    running::
 
         xl = ExcelApp(mode="attach")
         wb = xl.open("C:/reports/budget.xlsx")
         # ... many operations spread across multiple calls ...
-        xl.quit()   # optional in attach mode — Excel stays running
+        xl.quit()   # releases only — the user's Excel stays running
+
+    **Attach or create** — use ``mode="auto"`` to drive the Excel the user
+    already has open, and start a private one only when none is::
+
+        with ExcelApp(mode="auto") as xl:
+            wb = xl.workbook()      # the user's active workbook, if any
+        # Excel is quit only if this session started it
 
     The COM object is resolved **lazily** on the first public method call;
     constructing an ``ExcelApp`` instance does not connect to COM.
 
     Args:
-        mode: ``"dispatch"`` to start a new Excel instance, or
-            ``"attach"`` to bind to the already-running one.
-        visible: Whether to make the Excel window visible. Only relevant
-            in ``dispatch`` mode; ignored when attaching.
+        mode: ``"dispatch"`` to start a private Excel instance,
+            ``"attach"`` to bind to an already-running one, or ``"auto"``
+            to attach when Excel is running and start a private instance
+            otherwise.
+        visible: Whether to make the Excel window visible. Applies only to
+            an instance this session starts; an attached window is never
+            shown or hidden, since it belongs to the user.
 
     Raises:
         ExcelNotAvailableError: If ``mode="attach"`` and no Excel instance
-            is currently running.
+            is currently running, or if the COM object cannot be obtained.
+
+    Ownership:
+        Excel is quit on context-manager exit only when this session
+        started it. In ``attach`` mode — and in ``auto`` mode when an
+        existing instance was found — exiting merely releases the Python
+        reference and leaves Excel, and the user's unsaved work, alone.
     """
 
     # ///////////////////////////////////////////////////////////////
@@ -109,13 +125,16 @@ class ExcelApp:
 
     def __init__(
         self,
-        mode: Literal["dispatch", "attach"] = "dispatch",
+        mode: Literal["dispatch", "attach", "auto"] = "dispatch",
         visible: bool = True,
     ) -> None:
-        self._mode: Literal["dispatch", "attach"] = mode
+        self._mode: Literal["dispatch", "attach", "auto"] = mode
         self._visible: bool = visible
         # COM object resolved lazily on first access via _get_app().
         self._app: Any = None
+        # True only when this session started the Excel process, which is
+        # what decides whether __exit__ is allowed to quit it.
+        self._owns_app: bool = False
         # Record the creating thread — enforced on every COM call.
         self._thread_id: int = threading.get_ident()
         logger.debug(
@@ -141,14 +160,15 @@ class ExcelApp:
     def __exit__(self, *_args: Any) -> None:
         """Clean up the COM session.
 
-        In ``dispatch`` mode, quits Excel without saving. In ``attach``
-        mode, leaves Excel running and merely releases the Python reference.
+        Quits Excel only when this session started it. An instance that was
+        already running — ``attach`` mode, or ``auto`` mode that found one —
+        is left alive, together with the user's unsaved work.
         """
-        if self._mode == "dispatch":
+        if self._owns_app:
             self.quit(save_changes=False)
         else:
-            logger.debug("ExcelApp detaching (attach mode — Excel left running).")
-            printer.system("ExcelApp detached (attach mode — Excel left running).")
+            logger.debug("ExcelApp detaching (Excel was not ours — left running).")
+            printer.system("ExcelApp detached (Excel left running).")
             self._app = None
 
     # ///////////////////////////////////////////////////////////////
@@ -171,31 +191,89 @@ class ExcelApp:
         if self._app is not None:
             return self._app
 
-        if self._mode == "dispatch":
+        if self._mode == "auto":
+            # Prefer the instance already on screen, fall back to a private
+            # one. This is what win32.Dispatch did implicitly, except that
+            # ownership is now recorded, so __exit__ never quits an instance
+            # that was already there.
             try:
-                self._app = win32.Dispatch("Excel.Application")
-                self._app.Visible = self._visible
-                logger.debug("Excel dispatched (Visible=%s).", self._visible)
-                printer.system(
-                    f"Excel.Application dispatched (Visible={self._visible})."
-                )
-            except Exception as exc:
-                raise ExcelNotAvailableError(
-                    f"Failed to dispatch Excel.Application: {exc}", cause=exc
-                ) from exc
-        else:  # attach
-            try:
-                self._app = win32.GetActiveObject("Excel.Application")
-                logger.debug("Attached to running Excel instance.")
-                printer.detect("Attached to running Excel instance.")
-            except Exception as exc:
-                raise ExcelNotAvailableError(
-                    "No running Excel instance found. "
-                    "Start Excel before using mode='attach'.",
-                    cause=exc,
-                ) from exc
+                self._attach()
+            except ExcelNotAvailableError:
+                logger.debug("auto: no running Excel — starting a private one.")
+                self._dispatch()
+        elif self._mode == "dispatch":
+            self._dispatch()
+        else:
+            self._attach()
 
         return self._app
+
+    def _dispatch(self) -> None:
+        """Start a private Excel process and take ownership of it.
+
+        Raises:
+            ExcelNotAvailableError: If the instance cannot be started.
+        """
+        try:
+            # DispatchEx, not Dispatch: Dispatch returns the *already
+            # running* Excel when there is one (verified — two calls hand
+            # back the same Hwnd). Adopting the user's session would then
+            # hide their window via Visible below and close it on __exit__,
+            # discarding their unsaved work. `auto` mode offers that
+            # attach-or-create fallback explicitly, with ownership tracked.
+            self._app = win32.DispatchEx("Excel.Application")
+            self._owns_app = True
+            self._app.Visible = self._visible
+            logger.debug("Excel dispatched (Visible=%s).", self._visible)
+            printer.system(f"Excel.Application dispatched (Visible={self._visible}).")
+        except Exception as exc:
+            # Release a half-initialised instance: DispatchEx may have
+            # succeeded before the Visible assignment failed, and leaving
+            # _app set would both leak the process and make every later call
+            # return the broken object (see the early return in _get_app).
+            self._release_failed_app()
+            raise ExcelNotAvailableError(
+                f"Failed to dispatch Excel.Application: {exc}", cause=exc
+            ) from exc
+
+    def _attach(self) -> None:
+        """Bind to the running Excel instance without taking ownership.
+
+        ``Visible`` is deliberately not touched: the window belongs to the
+        user, and hiding it makes Excel look as though it crashed.
+
+        Raises:
+            ExcelNotAvailableError: If no Excel instance is running.
+        """
+        try:
+            self._app = win32.GetActiveObject("Excel.Application")
+            self._owns_app = False
+            logger.debug("Attached to running Excel instance.")
+            printer.detect("Attached to running Excel instance.")
+        except Exception as exc:
+            self._release_failed_app()
+            raise ExcelNotAvailableError(
+                "No running Excel instance found. "
+                "Start Excel before using mode='attach', or use mode='auto' "
+                "to start one when none is open.",
+                cause=exc,
+            ) from exc
+
+    def _release_failed_app(self) -> None:
+        """Drop a COM object that failed to initialise, quitting it if we own it.
+
+        Only used on the error path of :meth:`_get_app`. An attached instance
+        belongs to the user, so it is released but never quit.
+        """
+        app, self._app = self._app, None
+        owned, self._owns_app = self._owns_app, False
+        if app is None or not owned:
+            return
+        try:
+            app.DisplayAlerts = False
+            app.Quit()
+        except Exception as exc:  # pragma: no cover — best-effort cleanup
+            logger.debug("Could not quit the failed Excel instance: %s", exc)
 
     def _check_thread(self) -> None:
         """Assert the call originates from the COM apartment thread."""
@@ -228,9 +306,11 @@ class ExcelApp:
         resolved = Path(path).resolve()
         logger.debug("Opening workbook: %s", resolved)
         xl = self._get_app()
-        xl.Workbooks.Open(str(resolved))
-        # The newly opened workbook becomes the ActiveWorkbook.
-        wb_name: str = xl.ActiveWorkbook.Name
+        # Name the workbook from the handle Open() returns, not from
+        # ActiveWorkbook: if a dialog or another window takes focus,
+        # ActiveWorkbook is somebody else and the proxy would bind to the
+        # wrong file.
+        wb_name: str = xl.Workbooks.Open(str(resolved)).Name
         logger.debug("Workbook opened: %s", wb_name)
         printer.system(f"Workbook opened: {wb_name}")
         return WorkbookProxy(self, wb_name)
@@ -373,10 +453,13 @@ class ExcelApp:
             ...     xl.gui.ribbon.execute("FileSave")
             ...     path = xl.gui.dialog.get_file_open()
         """
+        # Imported here rather than at module scope: gui imports nothing from
+        # core, so the layer contract allows core -> gui, but a top-level
+        # import would still drag the GUI backends into every core import.
+        from ..gui._gui_proxy import GUIProxy
+
         self._check_thread()
-        module = importlib.import_module("ezxl.gui._gui_proxy")
-        gui_proxy_cls = module.GUIProxy
-        return gui_proxy_cls(self)
+        return GUIProxy(self)
 
     @property
     @wrap_com_error
@@ -406,13 +489,24 @@ class ExcelApp:
     def quit(self, save_changes: bool = False) -> None:
         """Quit the Excel Application.
 
+        Only an instance this session started is quit. One that was already
+        running — ``attach`` mode, or ``auto`` mode that found one — is
+        released instead, so a stray ``quit()`` cannot close the user's
+        Excel and lose their unsaved work.
+
         This method is safe to call multiple times; subsequent calls after
         the first are no-ops.
 
         Args:
-            save_changes: If ``True``, Excel will prompt to save unsaved
-                workbooks. If ``False``, all unsaved changes are discarded.
-                Defaults to ``False``.
+            save_changes: If ``True``, Excel is allowed to prompt for unsaved
+                workbooks. If ``False``, alerts are suppressed and unsaved
+                changes are discarded. Defaults to ``False``. Ignored for an
+                instance this session does not own, which is never quit.
+
+        Note:
+            An Excel instance started by automation reports
+            ``UserControl=False`` and quits without prompting either way, so
+            the flag has no visible effect on a dispatched instance.
 
         Raises:
             ExcelThreadViolationError: If called from the wrong thread.
@@ -424,8 +518,17 @@ class ExcelApp:
         if self._app is None:
             return
         self._check_thread()
+        if not self._owns_app:
+            logger.debug("quit(): Excel was not started by us — releasing only.")
+            printer.system("ExcelApp released (Excel was already running).")
+            self._app = None
+            return
         logger.debug("Quitting Excel (save_changes=%s).", save_changes)
         try:
+            # Application.Quit takes no argument — passing one is a TypeError.
+            # DisplayAlerts is the only lever: False discards silently, True
+            # lets Excel ask (which it only does for a user-owned instance).
+            self._app.DisplayAlerts = save_changes
             self._app.Quit()
             printer.system("Excel.Application quit.")
         except Exception as exc:
@@ -433,3 +536,4 @@ class ExcelApp:
             logger.warning("Error during Excel quit (may be harmless): %s", exc)
         finally:
             self._app = None
+            self._owns_app = False

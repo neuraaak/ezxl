@@ -266,3 +266,6 @@ temp_projects/
 # Configuration locale utilisateur
 local_config/
 user_settings/
+
+# Scratch audit reports (counter-audit output)
+.tmp/

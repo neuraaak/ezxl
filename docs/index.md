@@ -62,6 +62,7 @@
 ## ✨ Key features
 
 - Excel COM lifecycle management through `ExcelApp`, `WorkbookProxy`, and `SheetProxy`
+- Three session modes — start a private instance (`dispatch`), drive the one already open (`attach`), or either (`auto`)
 - Closed-file read and conversion flows through `polars`, `fastexcel`, and `xlsxwriter`
 - Closed-file formatting through `ExcelFormatter` and `openpyxl`
 - Swappable GUI surfaces through `GUIProxy` and backend protocols

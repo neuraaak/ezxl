@@ -93,6 +93,13 @@ with ExcelApp(mode="dispatch", visible=False) as xl:
 
 You should see the value from cell `B5` printed to the console.
 
+!!! tip "🔁 Driving an Excel you already have open"
+    `mode="dispatch"` always starts a private instance. To work on the
+    workbook the user already has on screen, use `mode="attach"` (fails with
+    `ExcelNotAvailableError` if nothing is running) or `mode="auto"`
+    (attaches when possible, starts an instance otherwise). See
+    [Examples](examples/index.md).
+
 ## 📝 Step 5 — Save a change
 
 ```python

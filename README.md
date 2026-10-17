@@ -70,9 +70,14 @@ with ExcelApp(mode="dispatch", visible=True) as xl:
     print(value)
     wb.save()
 
-# Attach to a running Excel instance
+# Attach to a running Excel instance (left running on exit)
 with ExcelApp(mode="attach") as xl:
     xl.gui.ribbon.execute("FileSave")
+
+# Attach if Excel is open, start a private instance otherwise.
+# Excel is only quit on exit when ezxl started it.
+with ExcelApp(mode="auto") as xl:
+    wb = xl.workbook()
 ```
 
 ## 🎯 Key Features

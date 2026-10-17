@@ -21,13 +21,14 @@ concurrency:
 
 jobs:
   ci:
-    name: Release gate (CI)
+    name: CI gate
     uses: ./.github/workflows/01-ci.yml
 
   tag-sync:
-    name: Determine action & sync tags
+    name: Tag sync
     needs: ci
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write # push tags
     outputs:
@@ -40,10 +41,17 @@ jobs:
         with:
           fetch-depth: 0 # full history: need every tag
 
-      - name: Extract version from pyproject.toml
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      # `poe -q read-version` is the single source: 03 and 04 read the version
+      # the same way instead of each re-implementing a grep/sed.
+      - name: Resolve version
         id: version
         run: |
-          VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -1 | sed 's/.*version\s*=\s*"\([^"]*\)".*/\1/')
+          VERSION=$(uv run --frozen poe -q read-version)
           if [ -z "$VERSION" ]; then
             echo "::error::No version found in pyproject.toml"
             exit 1
@@ -67,14 +75,18 @@ jobs:
             echo "✅ New version → create $TAG_NAME"
           fi
 
-      - name: Create immutable tag + move floating alias
+      - name: Configure git
+        if: steps.gate.outputs.tag_action == 'create'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create tag & move alias
         if: steps.gate.outputs.tag_action == 'create'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           MAJOR="${VERSION%%.*}"
           LATEST_TAG="v${MAJOR}-latest"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "v$VERSION"                 # immutable: never force-pushed
           git push origin "v$VERSION"
           git tag -f "$LATEST_TAG"            # only the major alias ever moves
@@ -90,8 +102,8 @@ jobs:
 
   # Publish is irreversible → runs before docs. Not called on `skip` (already
   # published); on `preview` it builds + packages only (no upload).
-  trigger-publish:
-    name: Publish
+  publish:
+    name: Publish (PyPI)
     needs: tag-sync
     if: needs.tag-sync.outputs.tag_action != 'skip'
     permissions:
@@ -102,13 +114,15 @@ jobs:
       version: ${{ needs.tag-sync.outputs.version }}
       tag_action: ${{ needs.tag-sync.outputs.tag_action }}
 
-  trigger-deploy-docs:
+  docs:
     name: Docs
-    needs: [tag-sync, trigger-publish]
+    needs: [tag-sync, publish]
     if: |
       always() &&
       needs.tag-sync.result == 'success' &&
-      (needs.tag-sync.outputs.tag_action == 'skip' || needs.trigger-publish.result == 'success')
+      ( needs.tag-sync.outputs.tag_action == 'skip' ||
+        needs.tag-sync.outputs.tag_action == 'preview' ||
+        needs.publish.result == 'success' )
     permissions:
       contents: write # mike pushes the built docs to the gh-pages branch
     uses: ./.github/workflows/04-docs.yml

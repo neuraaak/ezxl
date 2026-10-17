@@ -287,11 +287,10 @@ def read_sheet(
     df = read_excel(source, sheet, *pl_args, **pl_kwargs)
 
     # Prepend column names as the first row to preserve the legacy contract
-    # where callers expected headers in row 0.
-    header_row: list[Any] = list(df.columns)
-    data_rows: list[list[Any]] = [list(row) for row in df.rows()]
-
-    result: list[list[Any]] = [header_row, *data_rows]
+    # where callers expected headers in row 0. iter_rows streams instead of
+    # materialising the whole table a second time next to the DataFrame.
+    result: list[list[Any]] = [list(df.columns)]
+    result.extend(list(row) for row in df.iter_rows())
 
     logger.debug("read_sheet: returning %d rows (incl. header).", len(result))
     return result

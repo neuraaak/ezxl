@@ -5,6 +5,29 @@ Copy-paste-ready examples for the most common EzXl scenarios.
 !!! tip "🚀 Assumption"
     All examples assume the package is already installed in the current environment.
 
+## 🧭 Choosing a session mode
+
+| Mode | Gets | Quits Excel on exit |
+| ---- | ---- | ------------------- |
+| `"dispatch"` | A private, newly started instance | Yes — it started it |
+| `"attach"` | The running instance, or `ExcelNotAvailableError` | No |
+| `"auto"` | The running instance if there is one, a private one otherwise | Only if it started it |
+
+!!! warning "Driving the Excel someone has open"
+    Use `"attach"` or `"auto"` for that, never `"dispatch"` — it always starts
+    its own process. A session only ever quits an instance it started, so an
+    Excel window the user opened keeps running, with its unsaved work, on
+    both context-manager exit and an explicit `quit()`.
+
+```python
+from ezxl import ExcelApp
+
+# Work with whatever Excel the user has open, else start one.
+with ExcelApp(mode="auto") as xl:
+    workbook = xl.workbook()        # their active workbook, if any
+    print(workbook.name)
+```
+
 ## 🚀 Open a workbook and read a range
 
 ```python

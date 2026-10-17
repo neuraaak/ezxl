@@ -17,14 +17,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ezxl"
-version = "1.3.0"
+version = "1.4.0"
 description = "Windows Excel automation and file conversion library via COM, openpyxl, and polars."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.13"
 authors = [{ name = "Neuraaak" }]
 maintainers = [{ name = "Neuraaak" }]
-keywords = ["excel", "automation", "com", "openpyxl", "xlsx", "win32com", "spreadsheet", "office"]
+keywords = [
+    "excel",
+    "automation",
+    "com",
+    "openpyxl",
+    "xlsx",
+    "win32com",
+    "spreadsheet",
+    "office",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
@@ -149,7 +158,11 @@ security = { help = "Run Bandit and audit locked dependencies", sequence = [
 test = "pytest"
 # The `excel` marker drives a live Excel instance over COM: Windows-only,
 # excluded from every CI run and from the coverage gate.
+# Windows is the only OS where every module imports, so it is the only one
+# where the total is meaningful: _com_utils and _pywintypes_compat are
+# win32-only and score 0% on Linux. 01-ci picks the task per runner.
 test-ci = "pytest -m 'not excel' --cov-fail-under=85"
+test-ci-nogate = "pytest -m 'not excel' --cov-fail-under=0"
 test-unit = "pytest -m unit"
 test-fast = "pytest -n auto -m 'not slow and not excel'"
 docs = "mkdocs serve"
@@ -157,6 +170,9 @@ docs-build = "mkdocs build --strict"
 docs-coverage = "pytest -m 'not excel' --cov=src/ezxl --cov-report=html --cov-report=xml -q"
 graph = "python .scripts/dev/generate_architecture_graph.py"
 version = "python .scripts/dev/update_version.py"
+# Single source for the version in CI: 02, 03 and 04 all read it this way
+# instead of each re-implementing a grep/sed over pyproject.toml.
+read-version = '''python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"'''
 build = "uv build"
 
 [tool.poe.tasks.imports]
@@ -379,9 +395,14 @@ root_packages = ["ezxl"]
 [[tool.importlinter.contracts]]
 name = "layer dependency flow"
 type = "layers"
+# core sits above gui: ExcelApp.gui builds a GUIProxy, while gui imports
+# nothing from core (it types the app through the ExcelAppLike Protocol).
+# Declaring them as independent siblings was only true because the import was
+# hidden in an importlib string, which the linter cannot see.
 layers = [
     "ezxl.cli",
-    "ezxl.core | ezxl.gui",
+    "ezxl.core",
+    "ezxl.gui",
     "ezxl.io | ezxl.utils",
     "ezxl.exceptions",
 ]
@@ -415,7 +436,6 @@ python_functions = ["test_*"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
-    "robustness: marks tests as robustness tests",
     "unit: marks tests as unit tests (default)",
     "cli: marks tests related to CLI",
     "excel: marks tests requiring a live Excel installation (deselect with '-m not excel')",
@@ -449,13 +469,13 @@ omit = [
     "docs/*",
     "examples/*",
     "_temp/*",
-    # CLI entry points: tested via e2e/smoke tests, not unit tests
-    "src/ezxl/cli/*",
-    # COM/live-Excel modules — require a running Excel instance (excluded from CI)
+    # COM/live-Excel modules — require a running Excel instance (excluded from
+    # CI). Everything omitted here is invisible to the --cov-fail-under gate,
+    # so keep the list to modules that genuinely cannot run without Excel:
+    # _com_utils.py and cli/ were omitted and are not in that category.
     "*/core/_excel_app.py",
     "*/core/_workbook.py",
     "*/core/_sheet.py",
-    "*/utils/_com_utils.py",
     # win32com GUI backends — require COM and a live Excel window
     "*/gui/win32com/*",
     "*/gui/_gui_proxy.py",
@@ -480,7 +500,9 @@ exclude_lines = [
 ]
 show_missing = true
 precision = 2
-fail_under = 85
+# No `fail_under` here on purpose: it would apply to every coverage run,
+# including `docs-coverage`, which only produces htmlcov/ as a docs input.
+# The threshold belongs to the gate that wants it — see `test-ci`.
 
 [tool.coverage.html]
 directory = "htmlcov"

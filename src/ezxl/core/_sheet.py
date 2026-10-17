@@ -28,7 +28,7 @@ from ezplog.lib_mode import get_logger
 # Local imports
 from ..exceptions import SheetNotFoundError
 from ..utils._com_utils import assert_main_thread, wrap_com_error
-from ..utils._pywintypes_compat import COM_ERROR_TYPE, COM_TIME_TYPE
+from ..utils._pywintypes_compat import COM_TIME_TYPE
 
 if TYPE_CHECKING:
     from ._workbook import WorkbookProxy
@@ -38,6 +38,19 @@ if TYPE_CHECKING:
 # ///////////////////////////////////////////////////////////////
 
 logger = get_logger(__name__)
+
+# The XlCVError enumeration, as COM returns it for an error cell: a negative
+# int, not an exception. Values verified against Excel 16 over COM.
+_EXCEL_ERROR_VALUES: dict[int, str] = {
+    -2146826288: "#NULL!",
+    -2146826281: "#DIV/0!",
+    -2146826273: "#VALUE!",
+    -2146826265: "#REF!",
+    -2146826259: "#NAME?",
+    -2146826252: "#NUM!",
+    -2146826246: "#N/A",
+    -2146826245: "#GETTING_DATA",
+}
 
 
 def _is_com_date(value: Any) -> bool:
@@ -61,7 +74,16 @@ def _normalise_cell_value(value: Any) -> Any:
     if value is None:
         return None
 
-    # Normalise COM dates to stdlib datetime.
+    # Normalise COM dates to stdlib datetime, keeping microseconds — they were
+    # being dropped, which silently truncated timestamped data.
+    #
+    # tzinfo is deliberately NOT carried over. An Excel date is a naive serial
+    # number with no zone; the TimeZoneInfo pywintypes attaches is an artifact
+    # of the VT_DATE conversion and reflects the machine's locale, not the
+    # author's intent. Propagating it would also make the value tz-aware, so a
+    # caller comparing a cell date against datetime.now() would get
+    # "can't compare offset-naive and offset-aware datetimes". The naive value
+    # is exactly the wall clock the cell displays.
     if _is_com_date(value):
         try:
             return datetime(
@@ -71,15 +93,21 @@ def _normalise_cell_value(value: Any) -> Any:
                 value.hour,
                 value.minute,
                 value.second,
+                value.microsecond,
             )
         except Exception as exc:
             logger.warning("Failed to convert COM date %r to datetime: %s", value, exc)
             return value
 
-    # Detect COM error values (#N/A, #VALUE!, etc.) — pywintypes wraps
-    # these as pywintypes.error instances.
-    if isinstance(value, COM_ERROR_TYPE):
-        logger.warning("Cell contains a COM error value (%r); returning None.", value)
+    # Detect Excel error values (#N/A, #DIV/0!, …). COM hands them over as
+    # plain negative ints (a VT_ERROR variant), never as an exception
+    # instance — `=1/0` reads back as -2146826281.
+    if isinstance(value, int) and value in _EXCEL_ERROR_VALUES:
+        logger.warning(
+            "Cell contains the Excel error value %d (%s); returning None.",
+            value,
+            _EXCEL_ERROR_VALUES[value],
+        )
         return None
 
     return value

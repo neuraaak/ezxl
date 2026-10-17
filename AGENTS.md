@@ -41,10 +41,11 @@ src/ezxl/
     ├── _com_utils.py    # COM helpers — Windows only
     └── _pywintypes_compat.py
 tests/
-├── unit/                # Fast, no Excel instance required
-├── integration/         # Require a live Excel process (marked `excel`)
-└── robustness/
+└── unit/                # Fast, no Excel instance required
 ```
+
+Tests live in `tests/unit/`. Anything that needs a running Excel process is
+marked `@pytest.mark.excel` and excluded from CI, whichever file it sits in.
 
 ---
 
@@ -53,12 +54,16 @@ tests/
 Enforced by `import-linter` in CI. **Never violate this dependency order:**
 
 ```text
-cli  →  core | gui  →  io | utils  →  exceptions
+cli  →  core  →  gui  →  io | utils  →  exceptions
 ```
 
 - `exceptions` has no internal imports.
 - `io` and `utils` must not import from `core`, `gui`, or `cli`.
-- `core` and `gui` must not import from `cli`.
+- `gui` must not import from `core` or `cli` — it types the application
+  through the `ExcelAppLike` protocol instead.
+- `core` may import `gui` (`ExcelApp.gui` builds a `GUIProxy`), and does so
+  inside the property so the GUI backends are not pulled into every `core`
+  import.
 - Cross-cutting imports trigger a CI failure (`lint-imports`).
 
 ---
@@ -169,7 +174,6 @@ test_should_<expected_behavior>_when_<condition>
 | `excel`       | Requires a live Excel process (excluded from CI) |
 | `slow`        | Long-running tests                               |
 | `cli`         | CLI-related tests                                |
-| `robustness`  | Edge cases and fault tolerance                   |
 
 Tests in `tests/unit/` must not require a running Excel instance. Mark any test that does with `@pytest.mark.excel` so it is excluded from CI.
 
@@ -244,7 +248,7 @@ feat: add xlsx_to_parquet converter
 fix: handle empty sheet in read_sheet
 refactor: extract COM retry logic to _com_utils
 docs: update ExcelApp docstring
-test: add robustness tests for CellProxy
+test: add edge-case tests for CellProxy
 chore: bump version to 1.2.0
 ```
 
