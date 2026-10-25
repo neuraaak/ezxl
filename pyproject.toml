@@ -7,7 +7,7 @@
 # Hatchling 1.32+ emits Metadata-Version 2.5, which is rejected by the
 # twine bundled in pypa/gh-action-pypi-publish. Keep 1.31.x until that action
 # accepts the newer metadata version.
-requires = ["hatchling>=1.27,<1.32"]
+requires = ["hatchling>=1.27,<1.33"]
 build-backend = "hatchling.build"
 
 # ///////////////////////////////////////////////////////////////
@@ -87,7 +87,7 @@ docs = [
     # 12.x changes the Highlight extension signature and breaks the
     # mkdocs-material build ("Highlight.__init__() missing 1 required
     # positional argument: 'md'"). Lift the cap once Material supports it.
-    "pymdown-extensions>=11.0.1,<12",
+    "pymdown-extensions>=11.0.1,<13",
     "git-cliff>=2.7.0",
     "grimp>=2.3.0",
 
