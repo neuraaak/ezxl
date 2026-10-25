@@ -87,7 +87,7 @@ docs = [
     # 12.x changes the Highlight extension signature and breaks the
     # mkdocs-material build ("Highlight.__init__() missing 1 required
     # positional argument: 'md'"). Lift the cap once Material supports it.
-    "pymdown-extensions>=11.0.1,<12",
+    "pymdown-extensions>=11.0.1,<13",
     "git-cliff>=2.7.0",
     "grimp>=2.3.0",
 
