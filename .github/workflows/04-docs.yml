@@ -58,7 +58,7 @@ jobs:
       group: docs-build-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       # Pinned for the same reason as in 01-ci: uv would otherwise pick the
       # newest interpreter satisfying requires-python and build grimp from
       # source on 3.15.
@@ -91,7 +91,7 @@ jobs:
       cancel-in-progress: false # never interrupt a live docs deploy
 
     steps:
-      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
 
@@ -109,7 +109,7 @@ jobs:
         run: uv run --frozen poe graph
 
       - name: Generate changelog
-        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4
         with:
           config: cliff.toml
           args: --output docs/changelog.md
