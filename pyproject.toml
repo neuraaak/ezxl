@@ -7,7 +7,7 @@
 # Hatchling 1.32+ emits Metadata-Version 2.5, which is rejected by the
 # twine bundled in pypa/gh-action-pypi-publish. Keep 1.31.x until that action
 # accepts the newer metadata version.
-requires = ["hatchling>=1.27,<1.32"]
+requires = ["hatchling>=1.27,<1.33"]
 build-backend = "hatchling.build"
 
 # ///////////////////////////////////////////////////////////////
