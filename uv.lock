@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 
 [[package]]
@@ -402,7 +402,7 @@ wheels = [
 
 [[package]]
 name = "ezxl"
-version = "1.4.0"
+version = "1.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -491,7 +491,7 @@ dev = [
     { name = "pip-audit", specifier = ">=2.7.0" },
     { name = "poethepoet", specifier = ">=0.32" },
     { name = "pre-commit", specifier = ">=3.0.0" },
-    { name = "pymdown-extensions", specifier = ">=11.0.1,<12" },
+    { name = "pymdown-extensions", specifier = ">=11.0.1,<13" },
     { name = "pyright", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
@@ -511,7 +511,7 @@ docs = [
     { name = "mkdocs-section-index", specifier = ">=0.3.0" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27.0" },
     { name = "poethepoet", specifier = ">=0.32" },
-    { name = "pymdown-extensions", specifier = ">=11.0.1,<12" },
+    { name = "pymdown-extensions", specifier = ">=11.0.1,<13" },
 ]
 test = [
     { name = "import-linter", specifier = ">=2.0.0" },

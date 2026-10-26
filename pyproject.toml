@@ -17,7 +17,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ezxl"
-version = "1.4.0"
+version = "1.4.1"
 description = "Windows Excel automation and file conversion library via COM, openpyxl, and polars."
 readme = "README.md"
 license = { text = "MIT" }
